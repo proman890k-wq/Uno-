@@ -68,6 +68,8 @@ if WEB_URL:
 PUBLIC_URL = (os.getenv("PUBLIC_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
 # Что открывает кнопка в боте: WEB_URL, а если не задан — сам сервер.
 GAME_URL = WEB_URL or PUBLIC_URL
+KEEPALIVE = env_bool("KEEPALIVE", True)  # сам пингует свой /health, чтобы Render не усыплял сервис
+KEEPALIVE_INTERVAL = int(os.getenv("KEEPALIVE_INTERVAL", "210"))
 WEBHOOK_PATH = "/tg/" + hashlib.sha256(BOT_TOKEN.encode()).hexdigest()[:32]
 DB_PATH = os.getenv("DB_PATH", "uno.db")
 AUTH_MAX_AGE = int(os.getenv("AUTH_MAX_AGE", "86400"))  # срок годности initData, сек
@@ -1625,11 +1627,14 @@ async def lifespan(app: FastAPI):
     elif BOT_TOKEN:
         log.warning("PUBLIC_URL/RENDER_EXTERNAL_URL не задан: бот не отвечает на /start")
     task = asyncio.create_task(ticker())
+    ka_task = asyncio.create_task(keepalive()) if (KEEPALIVE and PUBLIC_URL) else None
     log.info("UNO server started (dev=%s)", DEV_MODE)
     try:
         yield
     finally:
         task.cancel()
+        if ka_task:
+            ka_task.cancel()
         for c in list(conns.values()):
             try:
                 await c.ws.close(code=1001)
@@ -1732,6 +1737,18 @@ async def ws_endpoint(ws: WebSocket) -> None:
             log.exception("websocket error")
     finally:
         await on_disconnect(conn)
+
+
+async def keepalive() -> None:
+    def _ping() -> None:
+        urllib.request.urlopen(PUBLIC_URL + "/health", timeout=10).read()
+
+    while True:
+        await asyncio.sleep(KEEPALIVE_INTERVAL)
+        try:
+            await asyncio.to_thread(_ping)
+        except Exception as e:
+            log.warning("keepalive failed: %s", e)
 
 
 def tg_call(method: str, payload: dict) -> dict:
