@@ -25,6 +25,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Callable, Optional
 from urllib.parse import parse_qsl, urlparse
+import urllib.request
 
 try:  # .env необязателен
     from dotenv import load_dotenv
@@ -34,7 +35,7 @@ except Exception:  # pragma: no cover
     pass
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -62,6 +63,12 @@ if WEB_URL:
         _origin = f"{_u.scheme}://{_u.netloc}"
         if _origin not in ALLOWED_ORIGINS:
             ALLOWED_ORIGINS.append(_origin)
+
+# Адрес самого сервера на Render (Render сам задаёт RENDER_EXTERNAL_URL) — нужен для вебхука бота.
+PUBLIC_URL = (os.getenv("PUBLIC_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
+# Что открывает кнопка в боте: WEB_URL, а если не задан — сам сервер.
+GAME_URL = WEB_URL or PUBLIC_URL
+WEBHOOK_PATH = "/tg/" + hashlib.sha256(BOT_TOKEN.encode()).hexdigest()[:32]
 DB_PATH = os.getenv("DB_PATH", "uno.db")
 AUTH_MAX_AGE = int(os.getenv("AUTH_MAX_AGE", "86400"))  # срок годности initData, сек
 RECONNECT_GRACE = int(os.getenv("RECONNECT_GRACE", "90"))  # сколько ждём вернувшегося игрока, сек
@@ -1608,6 +1615,15 @@ async def lifespan(app: FastAPI):
                     " (DEV_MODE: разрешён тестовый вход)" if DEV_MODE else "")
     if not ALLOWED_ORIGINS and not DEV_MODE:
         log.warning("ALLOWED_ORIGINS не задан: внешние страницы не смогут подключаться к WebSocket")
+    if BOT_TOKEN and PUBLIC_URL:
+        try:
+            r = await asyncio.to_thread(tg_call, "setWebhook",
+                                        {"url": PUBLIC_URL + WEBHOOK_PATH, "allowed_updates": ["message"]})
+            log.info("setWebhook: %s", r.get("ok"))
+        except Exception as e:
+            log.warning("setWebhook failed: %s", e)
+    elif BOT_TOKEN:
+        log.warning("PUBLIC_URL/RENDER_EXTERNAL_URL не задан: бот не отвечает на /start")
     task = asyncio.create_task(ticker())
     log.info("UNO server started (dev=%s)", DEV_MODE)
     try:
@@ -1716,6 +1732,37 @@ async def ws_endpoint(ws: WebSocket) -> None:
             log.exception("websocket error")
     finally:
         await on_disconnect(conn)
+
+
+def tg_call(method: str, payload: dict) -> dict:
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{BOT_TOKEN}/{method}",
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        return json.loads(resp.read().decode())
+
+
+@app.post(WEBHOOK_PATH)
+async def tg_webhook(request: Request) -> dict:
+    try:
+        update = await request.json()
+    except Exception:
+        return {"ok": True}
+    msg = update.get("message") or {}
+    chat = msg.get("chat") or {}
+    text = (msg.get("text") or "").strip()
+    if text.startswith("/start") and chat.get("id") and GAME_URL:
+        try:
+            await asyncio.to_thread(tg_call, "sendMessage", {
+                "chat_id": chat["id"],
+                "text": "🃏 UNO Online — жми кнопку и играй!",
+                "reply_markup": {"inline_keyboard": [[{"text": "🎮 Играть", "web_app": {"url": GAME_URL}}]]},
+            })
+        except Exception as e:
+            log.warning("sendMessage failed: %s", e)
+    return {"ok": True}
 
 
 if __name__ == "__main__":
