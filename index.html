@@ -329,6 +329,108 @@ body.lite *{animation-duration:.01ms!important}
 @media (min-width:600px) and (orientation:landscape){
   #app{height:min(100dvh,640px)}
 }
+
+/* =====================================================================
+   ОБНОВЛЁННОЕ ОФОРМЛЕНИЕ В СТИЛЕ UNO
+   ===================================================================== */
+#app{background:radial-gradient(90% 50% at 50% -4%,rgba(255,61,79,.34),transparent 62%),radial-gradient(80% 46% at 100% 100%,rgba(47,123,255,.34),transparent 62%),
+  radial-gradient(70% 40% at 0% 88%,rgba(31,196,106,.2),transparent 62%),linear-gradient(180deg,#151b48,#070a1c)}
+.bgc{position:absolute;bottom:-100px;border-radius:9px;border:2px solid rgba(255,255,255,.55);opacity:.14;pointer-events:none;animation:bgfloat linear infinite}
+@keyframes bgfloat{from{transform:translateY(0) rotate(var(--r0))}to{transform:translateY(-115vh) rotate(calc(var(--r0) + 140deg))}}
+@media (prefers-reduced-motion:reduce){.bgc{display:none}}
+body.lite .bgc,body.lite .cf{display:none}
+.screen{animation:scrIn .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes scrIn{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-26px)}to{opacity:1;transform:none}}
+@keyframes bob{from{translate:0 0}to{translate:0 -4px}}
+@keyframes glowPulse{from{box-shadow:0 0 12px var(--cc,#fff),inset 0 0 8px var(--cc,#fff)}to{box-shadow:0 0 34px var(--cc,#fff),inset 0 0 20px var(--cc,#fff)}}
+@keyframes shine{0%{left:-60%}55%,100%{left:130%}}
+@keyframes txtGlow{from{text-shadow:0 0 0 transparent}to{text-shadow:0 0 14px var(--accent)}}
+
+/* кнопки: объёмные, с бликом */
+.btn{position:relative;overflow:hidden;border:2px solid rgba(255,255,255,.18);box-shadow:0 4px 0 rgba(0,0,0,.35),0 8px 16px rgba(0,0,0,.25);transition:transform .1s,box-shadow .1s,filter .12s}
+.btn:active{transform:translateY(3px) scale(.99);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.btn.primary{box-shadow:0 4px 0 #b36b00,0 10px 22px rgba(255,179,0,.35)}
+.btn.blue{box-shadow:0 4px 0 #123c93,0 10px 22px rgba(47,123,255,.35)}
+.btn.green{box-shadow:0 4px 0 #0a6a34}
+.btn.red{box-shadow:0 4px 0 #8f1424}
+.btn.primary::after,.btn.blue::after{content:"";position:absolute;top:0;bottom:0;width:36%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.5),transparent);transform:skewX(-20deg);animation:shine 3.4s ease-in-out infinite}
+.btn.small{box-shadow:0 3px 0 rgba(0,0,0,.3)}
+.icon-btn{border:1px solid rgba(255,255,255,.15);box-shadow:0 3px 0 rgba(0,0,0,.3);transition:transform .1s}
+.icon-btn:active{transform:translateY(2px)}
+.card-panel,.prow,.room-item,.stat,.lb-row,.res-row{background:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.04));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.card-panel{border-color:rgba(255,255,255,.14);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.chip{border:1px solid rgba(255,255,255,.1)}
+
+/* главное меню */
+.logo-row{filter:drop-shadow(0 12px 18px rgba(0,0,0,.5))}
+.logo-row span{animation:bob 2s ease-in-out infinite alternate;position:relative;overflow:hidden;border-color:#fff;font-family:"Arial Black",Impact,system-ui,sans-serif}
+.logo-row span::after{content:"";position:absolute;top:-20%;bottom:-20%;width:40%;left:-70%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-18deg);animation:shine 4s ease-in-out infinite}
+.logo-row span:nth-child(2){animation-delay:-.7s}.logo-row span:nth-child(2)::after{animation-delay:.5s}
+.logo-row span:nth-child(3){animation-delay:-1.4s}.logo-row span:nth-child(3)::after{animation-delay:1s}
+.logo small{background:linear-gradient(90deg,#ff5a68,#ffd75a,#2fd47c,#4a90ff);-webkit-background-clip:text;background-clip:text;color:transparent;font-weight:900}
+.menu-btns>*{animation:slideIn .5s cubic-bezier(.2,.8,.2,1) both}
+.menu-btns>:nth-child(1){animation-delay:.08s}.menu-btns>:nth-child(2){animation-delay:.16s}
+.menu-btns>:nth-child(3){animation-delay:.24s}.menu-btns>:nth-child(4){animation-delay:.32s}
+.profile .avatar{box-shadow:0 0 0 3px var(--accent),0 0 18px rgba(255,199,46,.45)}
+.spinner{border-top-color:var(--accent);border-right-color:var(--blue);border-bottom-color:var(--good);box-shadow:0 0 18px rgba(255,199,46,.25)}
+
+/* листы и лобби */
+.sheet{background:linear-gradient(180deg,#232c6e,#10173b);box-shadow:0 -10px 40px rgba(0,0,0,.5);animation:slideUp .35s cubic-bezier(.2,.9,.25,1.1)}
+.sheet-head::before{content:"";position:absolute;left:50%;top:7px;width:44px;height:4px;margin-left:-22px;border-radius:9px;background:rgba(255,255,255,.25)}
+.sheet-head{position:relative}
+.code{background:linear-gradient(90deg,#ff5a68,#ffd75a,#2fd47c,#4a90ff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 10px rgba(255,199,46,.35))}
+.prow{animation:slideIn .35s cubic-bezier(.2,.8,.2,1) both}
+.prow:nth-child(2){animation-delay:.06s}.prow:nth-child(3){animation-delay:.12s}.prow:nth-child(4){animation-delay:.18s}
+.seg button.on{box-shadow:0 3px 0 #b36b00}
+
+/* игровое поле: «сукно» с кольцом и свечением */
+.game{background:radial-gradient(60% 40% at 50% 46%,rgba(31,196,106,.12),transparent 70%)}
+.table::before{width:min(92%,360px);background:radial-gradient(circle,rgba(47,123,255,.26),rgba(255,61,79,.07) 55%,transparent 70%)}
+.table::after{content:"";position:absolute;width:min(96%,380px);aspect-ratio:1;border-radius:50%;border:2px dashed rgba(255,255,255,.14);animation:spin 50s linear infinite;pointer-events:none}
+.dir{color:rgba(255,255,255,.28);text-shadow:0 0 12px rgba(255,199,46,.5)}
+.pile .ringc{animation:glowPulse 1.5s ease-in-out infinite alternate}
+.pile .card{box-shadow:0 10px 24px rgba(0,0,0,.6)}
+.deck .stackfx{transform:translate(4px,5px)}
+.deck:not(.can):hover{transform:translateY(-2px)}
+.cname{border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.5);letter-spacing:.04em}
+.topbar .rn{font-style:italic;letter-spacing:.02em}
+.opp .avatar{box-shadow:0 4px 10px rgba(0,0,0,.4)}
+.opp.turn .ring{animation:pulse .7s ease-in-out infinite alternate}
+.cnt{border:1px solid rgba(255,255,255,.25);box-shadow:0 2px 0 rgba(0,0,0,.3)}
+.status{text-shadow:0 2px 6px rgba(0,0,0,.5)}
+.status.mine{color:var(--accent);animation:txtGlow .8s ease-in-out infinite alternate}
+.tbar{box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}
+.tbar i{background:linear-gradient(90deg,#2fd47c,#8cf0b8)}
+.tbar.urgent i{background:linear-gradient(90deg,#ff4d5e,#ff9aa5)}
+.unobtn{box-shadow:0 4px 0 #8f1424,0 0 22px rgba(255,77,94,.55)!important;font-style:italic;text-shadow:0 2px 0 rgba(0,0,0,.3)}
+
+/* карты */
+.card{box-shadow:0 6px 14px rgba(0,0,0,.5),inset 0 0 0 1px rgba(0,0,0,.15)}
+.card::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(255,255,255,.28),transparent 38%);pointer-events:none}
+.card .center{text-shadow:0 2px 0 rgba(0,0,0,.18)}
+.hand .card:not(.selected):active{transform:translateY(-10px)}
+.hand .card.playable:not(.newcard):not(.selected){animation:bob 1.1s ease-in-out infinite alternate}
+.hand .card.selected{box-shadow:0 0 0 3px var(--accent),0 0 26px rgba(255,199,46,.85),0 14px 20px rgba(0,0,0,.5)}
+
+/* баннеры, эффекты */
+.banner{font-style:italic;letter-spacing:.02em;text-shadow:0 3px 0 rgba(0,0,0,.45);background:linear-gradient(180deg,rgba(24,30,78,.94),rgba(8,12,34,.94));
+  box-shadow:0 0 40px var(--bc,#fff),0 12px 30px rgba(0,0,0,.5),inset 0 0 18px rgba(255,255,255,.08)}
+.cf{position:absolute;top:-16px;left:var(--x);width:9px;height:15px;border-radius:2px;background:var(--c);opacity:0;animation:cf var(--d) cubic-bezier(.25,.6,.4,1) forwards}
+@keyframes cf{0%{opacity:1;transform:translate3d(0,0,0) rotate(0)}100%{opacity:1;transform:translate3d(var(--dx),108vh,0) rotate(var(--r))}}
+.burst{position:absolute;width:24px;height:24px;border-radius:50%;border:4px solid var(--bc);box-shadow:0 0 22px var(--bc),inset 0 0 12px var(--bc);animation:burst .6s ease-out forwards}
+@keyframes burst{from{transform:scale(.4);opacity:1}to{transform:scale(6);opacity:0}}
+.toast{background:linear-gradient(180deg,rgba(26,32,80,.96),rgba(10,14,38,.96));box-shadow:0 8px 20px rgba(0,0,0,.4);animation:scrIn .3s cubic-bezier(.2,.9,.3,1.2)}
+
+/* итоги раунда */
+.res-card{border:2px solid rgba(255,199,46,.4);box-shadow:0 0 50px rgba(255,199,46,.18),0 20px 50px rgba(0,0,0,.5);animation:scrIn .5s cubic-bezier(.2,.9,.3,1.2)}
+.crown{animation:crownIn .9s cubic-bezier(.2,.9,.3,1.4),bob 1.4s ease-in-out .9s infinite alternate;filter:drop-shadow(0 0 16px rgba(255,199,46,.7))}
+@keyframes crownIn{from{transform:scale(.2) rotate(-30deg);opacity:0}to{transform:none;opacity:1}}
+.res-title{background:linear-gradient(90deg,#ff5a68,#ffd75a,#2fd47c,#4a90ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.res-row{animation:slideIn .4s cubic-bezier(.2,.8,.2,1) both}
+.res-row:nth-of-type(1){animation-delay:.15s}.res-row:nth-of-type(2){animation-delay:.25s}.res-row:nth-of-type(3){animation-delay:.35s}.res-row:nth-of-type(4){animation-delay:.45s}
+.res-row.win{box-shadow:0 0 22px rgba(255,199,46,.3)}
+.prog i{transition:width 1s cubic-bezier(.2,.8,.2,1)}
 </style>
 </head>
 <body>
@@ -537,16 +639,23 @@ class LocalGame {
     if (c.value === 'wild4') return '«Взять четыре» можно сыграть, только если нет карты текущего цвета';
     return 'Эту карту нельзя сыграть: нужен тот же цвет, значение или символ';
   }
-  play(pid, cardId, color, now) {
+  play(pid, cardId, color, now, double) {
     this.checkTurn(pid);
     const p = this.cur(), card = p.hand.find(c => c.id === cardId);
     if (!card) throw new LErr('no_card', 'У вас нет такой карты');
     if (this.drawn !== null && cardId !== this.drawn) throw new LErr('must_play_drawn', 'После добора можно сыграть только взятую карту или пропустить ход');
     if (!this.isPlayable(p, card)) throw new LErr('illegal_move', this.illegalReason(card));
     if (card.color === 'W' && !['R', 'B', 'G', 'Y'].includes(color)) throw new LErr('color_required', 'Выберите цвет');
-    this.doPlay(p, card, color, now);
+    let twin = null;
+    if (double) {
+      if (this.drawn !== null || this.pending || card.color === 'W' || !/^\d$/.test(card.value)) throw new LErr('no_twin', 'Две карты сразу можно сыграть только если они одинаковые цифры');
+      twin = p.hand.find(c => c.id !== cardId && c.color === card.color && c.value === card.value);
+      if (!twin) throw new LErr('no_twin', 'Нет второй такой же карты');
+    }
+    this.doPlay(p, card, color, now, twin);
   }
-  doPlay(p, card, color, now) {
+  doPlay(p, card, color, now, extra) {
+    if (extra) { p.hand.splice(p.hand.indexOf(extra), 1); this.discard.push(extra); this.ev('play', { pid: p.id, card: extra, color: card.color }); }
     p.hand.splice(p.hand.indexOf(card), 1); this.discard.push(card);
     this.color = card.color === 'W' ? color : card.color;
     this.uno = null; this.drawn = null;
@@ -618,7 +727,7 @@ class LocalGame {
     if (!t || target !== w.pid || by === target) throw new LErr('nothing_to_catch', 'Поймать некого');
     if (t.hand.length !== 1 || t.uno_called) throw new LErr('nothing_to_catch', 'Игрок уже объявил UNO');
     this.uno = null;
-    const cnt = this.give(t, 2);
+    const cnt = this.give(t, 6);
     this.ev('caught', { pid: by, target }); this.ev('penalty', { pid: target, count: cnt });
   }
   timeoutAction(now) {
@@ -730,7 +839,7 @@ const Local = {
     if (!g) return { ok: false, message: 'Игра не запущена' };
     try {
       switch (type) {
-        case 'play_card': g.play('me', d.card_id, d.color, t); break;
+        case 'play_card': g.play('me', d.card_id, d.color, t, d.double); break;
         case 'draw_card': g.draw('me', t); break;
         case 'pass_turn': g.pass('me', t); break;
         case 'call_uno': g.callUno('me'); break;
@@ -928,6 +1037,30 @@ function colorFlash(color) {
   $('#fx').append(f); setTimeout(() => f.remove(), 750);
 }
 
+/* ----- визуальные эффекты ----- */
+const UNO_COL = ['#ff3d4f', '#ffc72e', '#1fc46a', '#2f7bff'];
+function initBg() {
+  const app = $('#app'); if (!app || app.querySelector('.bgc')) return;
+  for (let i = 0; i < 12; i++) {
+    const w = 30 + Math.random() * 30, c = UNO_COL[i % 4];
+    app.prepend(h('div', { class: 'bgc', style: `left:${Math.random() * 94}%;width:${w}px;height:${w * 1.5}px;background:linear-gradient(150deg,${c},rgba(0,0,0,.4));--r0:${Math.random() * 120 - 60}deg;animation-duration:${20 + Math.random() * 22}s;animation-delay:-${Math.random() * 30}s` }));
+  }
+}
+function confetti(n) {
+  if (Settings.lite) return;
+  const fx = $('#fx');
+  for (let i = 0; i < (n || 80); i++) {
+    const p = h('i', { class: 'cf', style: `--x:${Math.random() * 100}%;--c:${UNO_COL[i % 4]};--dx:${Math.random() * 160 - 80}px;--r:${Math.random() * 900 - 450}deg;--d:${1.6 + Math.random() * 1.4}s;animation-delay:${Math.random() * .4}s` });
+    fx.append(p); setTimeout(() => p.remove(), 3600);
+  }
+}
+function burst(r, color) {
+  if (Settings.lite || !r) return;
+  const b = h('div', { class: 'burst', style: `--bc:${color};left:${r.left + r.width / 2 - 12}px;top:${r.top + r.height / 2 - 12}px` });
+  $('#fx').append(b); setTimeout(() => b.remove(), 700);
+}
+initBg();
+
 function runEffects(evs, from) {
   const R = S.room; if (!R) return;
   const pileEl = $('.pile .card'), deckEl = $('.deck');
@@ -939,6 +1072,7 @@ function runEffects(evs, from) {
         Snd.play('play'); vib('light');
         const f = from[e.eid];
         if (pileEl && f) fly(f.mine ? f.rect : rectCenter(f.rect, cw * .6), pileEl.getBoundingClientRect(), { card: e.card });
+        if (pileEl) { const pr = pileEl.getBoundingClientRect(), pc = (e.card && COLOR_HEX[e.card.color]) || '#fff'; setTimeout(() => burst(pr, pc), 340); }
         break;
       }
       case 'color': banner('Цвет: ' + COLOR_NAMES[e.color], COLOR_HEX[e.color]); colorFlash(COLOR_HEX[e.color]); Snd.play('color'); break;
@@ -960,7 +1094,7 @@ function runEffects(evs, from) {
         }
         break;
       case 'uno': banner('UNO! ' + nameOf(e.pid), '#ffd75a'); Snd.play('uno'); break;
-      case 'caught': banner(`Пойман! ${nameOf(e.target)} +2`, '#ff6676'); break;
+      case 'caught': banner(`Пойман! ${nameOf(e.target)} +6`, '#ff6676'); break;
       case 'timeout': toast('Время вышло: ' + nameOf(e.pid)); break;
       case 'auto': toast('За игрока ' + nameOf(e.pid) + ' ходит бот'); break;
       case 'reshuffle': toast('Колода перемешана'); break;
@@ -971,7 +1105,7 @@ function runEffects(evs, from) {
       case 'owner': toast(nameOf(e.pid) + ' теперь владелец комнаты'); break;
       case 'round_end': {
         const won = e.winner === R.you;
-        Snd.play(won ? 'win' : 'lose'); vib(won ? 'ok' : 'error'); break;
+        Snd.play(won ? 'win' : 'lose'); vib(won ? 'ok' : 'error'); if (won) confetti(90); break;
       }
     }
   }
@@ -1337,10 +1471,17 @@ function onCardTap(c, el) {
   }
   if (ui.overlapping && ui.selected !== c.id) { ui.selected = c.id; Snd.play('click'); render(); return; }
   ui.selected = null;
-  if (c.color === 'W') pickColor(col => playCard(c.id, col));
-  else playCard(c.id, null);
+  if (c.color === 'W') { pickColor(col => playCard(c.id, col)); return; }
+  const me = G.hand || [], twin = !G.pending && G.drawn == null && /^\d$/.test(c.value) && me.some(x => x.id !== c.id && x.color === c.color && x.value === c.value);
+  if (twin) {
+    openSheet('Две одинаковые карты', h('div', { class: 'stack' },
+      h('button', { class: 'btn primary', onClick: () => { closeSheet(); playCard(c.id, null, true); } }, '🃏🃏 Сыграть обе сразу'),
+      h('button', { class: 'btn', onClick: () => { closeSheet(); playCard(c.id, null); } }, 'Сыграть одну')));
+    return;
+  }
+  playCard(c.id, null);
 }
-function playCard(id, color) { act('play_card', color ? { card_id: id, color } : { card_id: id }); }
+function playCard(id, color, double) { const d = { card_id: id }; if (color) d.color = color; if (double) d.double = true; act('play_card', d); }
 function drawCard() {
   const R = S.room; if (!R || R.status !== 'playing') return;
   if (!R.game.can_draw) { toast(R.game.turn === R.you ? 'Вы уже взяли карту' : 'Сейчас не ваш ход'); return; }
