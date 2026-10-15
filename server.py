@@ -82,7 +82,7 @@ RATE_CAPACITY = 15.0
 RATE_REFILL = 5.0  # токенов в секунду
 
 HAND_SIZE = 7
-UNO_PENALTY = 2
+UNO_PENALTY = 6  # штраф тому, кого поймали без UNO
 AFK_LIMIT = 3  # столько таймаутов подряд — игрок переводится на автопилот
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 CODE_LEN = 5
@@ -635,7 +635,7 @@ class Room:
             return "«Взять четыре» можно сыграть, только если нет карты текущего цвета"
         return "Эту карту нельзя сыграть: нужен тот же цвет, значение или символ"
 
-    def play_card(self, pid: str, card_id: int, color: Optional[str], now: float) -> None:
+    def play_card(self, pid: str, card_id: int, color: Optional[str], now: float, double: bool = False) -> None:
         self._check_turn(pid)
         p = self.current()
         card = next((c for c in p.hand if c["id"] == card_id), None)
@@ -647,9 +647,20 @@ class Room:
             raise GameError("illegal_move", self._illegal_reason(card))
         if card["color"] == "W" and color not in COLORS:
             raise GameError("color_required", "Выберите цвет")
-        self._do_play(p, card, color, now)
+        twin = None
+        if double:  # две одинаковые карты (цвет и цифра) за один ход
+            if self.drawn is not None or self.pending or card["color"] == "W" or not str(card["value"]).isdigit():
+                raise GameError("no_twin", "Две карты сразу можно сыграть только если они одинаковые цифры")
+            twin = next((c for c in p.hand if c["id"] != card_id and c["color"] == card["color"] and c["value"] == card["value"]), None)
+            if twin is None:
+                raise GameError("no_twin", "Нет второй такой же карты")
+        self._do_play(p, card, color, now, twin)
 
-    def _do_play(self, p: Player, card: dict, color: Optional[str], now: float) -> None:
+    def _do_play(self, p: Player, card: dict, color: Optional[str], now: float, extra: Optional[dict] = None) -> None:
+        if extra is not None:
+            p.hand.remove(extra)
+            self.discard.append(extra)
+            self._ev("play", pid=p.pid, card=extra, color=card["color"])
         p.hand.remove(card)
         self.discard.append(card)
         self.color = color if card["color"] == "W" else card["color"]
@@ -1323,7 +1334,8 @@ async def h_play_card(conn: Conn, msg: dict) -> None:
     color = msg.get("color")
     if color is not None and color not in COLORS:
         raise GameError("bad_request", "Недопустимый цвет")
-    await room_action(conn, lambda room, now: room.play_card(conn.pid, cid, color, now), human_action=True)
+    double = bool(msg.get("double"))
+    await room_action(conn, lambda room, now: room.play_card(conn.pid, cid, color, now, double), human_action=True)
 
 
 async def h_draw_card(conn: Conn, msg: dict) -> None:
