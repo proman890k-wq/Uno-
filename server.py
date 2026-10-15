@@ -54,6 +54,14 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 PORT = int(os.getenv("PORT", "8000"))
 DEV_MODE = env_bool("DEV_MODE", False)
 ALLOWED_ORIGINS = [o.strip().rstrip("/") for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+# WEB_URL — адрес страницы (например https://user.github.io/Uno-/). Берём из него origin и разрешаем его.
+WEB_URL = os.getenv("WEB_URL", "").strip()
+if WEB_URL:
+    _u = urlparse(WEB_URL if "://" in WEB_URL else "https://" + WEB_URL)
+    if _u.scheme and _u.netloc:
+        _origin = f"{_u.scheme}://{_u.netloc}"
+        if _origin not in ALLOWED_ORIGINS:
+            ALLOWED_ORIGINS.append(_origin)
 DB_PATH = os.getenv("DB_PATH", "uno.db")
 AUTH_MAX_AGE = int(os.getenv("AUTH_MAX_AGE", "86400"))  # срок годности initData, сек
 RECONNECT_GRACE = int(os.getenv("RECONNECT_GRACE", "90"))  # сколько ждём вернувшегося игрока, сек
