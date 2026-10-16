@@ -431,6 +431,44 @@ body.lite .bgc,body.lite .cf{display:none}
 .res-row:nth-of-type(1){animation-delay:.15s}.res-row:nth-of-type(2){animation-delay:.25s}.res-row:nth-of-type(3){animation-delay:.35s}.res-row:nth-of-type(4){animation-delay:.45s}
 .res-row.win{box-shadow:0 0 22px rgba(255,199,46,.3)}
 .prog i{transition:width 1s cubic-bezier(.2,.8,.2,1)}
+
+/* ---------- спецэффекты карт ---------- */
+.banner{translate:-50% -50%}
+#app.ashake{animation:appshake .55s}
+@keyframes appshake{10%,50%,90%{transform:translate(-7px,3px)}30%,70%{transform:translate(7px,-3px)}}
+.fxbig{position:absolute;left:50%;top:40%;translate:-50% -50%;font:italic 900 min(34vw,170px)/1 "Arial Black",Impact,sans-serif;color:#fff;-webkit-text-stroke:4px var(--bc);paint-order:stroke fill;
+  text-shadow:0 0 28px var(--bc),0 0 70px var(--bc),0 8px 0 rgba(0,0,0,.45);animation:slam 1.35s cubic-bezier(.2,.9,.2,1) forwards;white-space:nowrap}
+.fxbig.rb{color:transparent;-webkit-text-stroke:0;background:linear-gradient(90deg,#ff3d4f,#ffc72e,#1fc46a,#2f7bff,#ff3d4f);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;text-shadow:none;
+  filter:drop-shadow(0 0 18px #fff) drop-shadow(0 7px 0 rgba(0,0,0,.5));animation:slam 1.35s cubic-bezier(.2,.9,.2,1) forwards,rbmove .5s linear infinite}
+.fxbig.rev{animation:revspin 1.4s cubic-bezier(.2,.9,.2,1) forwards}
+@keyframes slam{0%{transform:scale(3.6) rotate(-14deg);opacity:0}16%{transform:scale(.88) rotate(3deg);opacity:1}26%{transform:scale(1.12) rotate(-2deg)}38%,72%{transform:scale(1);opacity:1}100%{transform:scale(1.6);opacity:0}}
+@keyframes revspin{0%{transform:scale(.2) rotate(-400deg);opacity:0}28%{transform:scale(1.15) rotate(0);opacity:1}70%{transform:scale(1) rotate(25deg);opacity:1}100%{transform:scale(1.7) rotate(200deg);opacity:0}}
+@keyframes rbmove{to{background-position:-200% 0}}
+.fxsub{position:absolute;left:50%;top:calc(40% + min(20vw,100px));translate:-50% 0;padding:6px 18px;border-radius:999px;background:rgba(8,12,34,.88);border:2px solid var(--bc);color:var(--bc);
+  font-weight:900;font-size:18px;white-space:nowrap;box-shadow:0 0 22px var(--bc);animation:pop 1.4s ease forwards}
+.shockw{position:absolute;width:40px;height:40px;border-radius:50%;border:6px solid var(--bc);box-shadow:0 0 26px var(--bc),inset 0 0 18px var(--bc);animation:shockw .95s ease-out forwards}
+@keyframes shockw{from{transform:scale(.2);opacity:1}to{transform:scale(14);opacity:0}}
+.spark{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 12px var(--c);animation:spark .95s ease-out forwards}
+@keyframes spark{to{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0}}
+.sweep{position:absolute;left:0;right:0;top:calc(40% - 42px);height:84px;display:flex;align-items:center;justify-content:center;font-size:60px;font-weight:900;letter-spacing:.2em;color:#fff;
+  background:linear-gradient(90deg,transparent,rgba(74,144,255,.7),transparent);text-shadow:0 0 22px #4a90ff;animation:sweepR .95s ease-out forwards}
+.sweep.ccw{animation-name:sweepL}
+@keyframes sweepR{from{transform:translateX(-100%);opacity:0}30%{opacity:1}to{transform:translateX(100%);opacity:0}}
+@keyframes sweepL{from{transform:translateX(100%);opacity:0}30%{opacity:1}to{transform:translateX(-100%);opacity:0}}
+body.lite .fxbig,body.lite .sweep{display:none}
+/* ---------- правила и обучение ---------- */
+.menu-btns>:nth-child(5){animation-delay:.4s}
+.rule .rt{font-weight:800;font-size:16px;margin-bottom:4px}
+.rule .rp{font-size:14px;line-height:1.5;color:#dfe5ff}
+.tutdots{display:flex;gap:6px;justify-content:center}
+.tutdots i{width:8px;height:8px;border-radius:9px;background:rgba(255,255,255,.2);transition:width .25s}
+.tutdots i.on{background:var(--accent);width:22px}
+.tuttitle{font-size:22px;font-weight:900;text-align:center}
+.tuttext{font-size:15px;line-height:1.45;text-align:center;color:#dfe5ff}
+.tutrow{display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;--cw:58px}
+.card.qok{box-shadow:0 0 0 3px #1fc46a,0 0 18px #1fc46a;transform:translateY(-8px)}
+.card.qno{animation:shake .3s;filter:brightness(.5)}
+.tutfb{min-height:22px;text-align:center;font-weight:700;font-size:14px}
 </style>
 </head>
 <body>
@@ -1027,8 +1065,8 @@ function fly(from, to, opt = {}) {
   }));
   setTimeout(() => el.remove(), dur + delay + 120);
 }
-function banner(text, color = '#fff') {
-  const b = h('div', { class: 'banner', style: `--bc:${color}` }, text);
+function banner(text, color = '#fff', top) {
+  const b = h('div', { class: 'banner', style: `--bc:${color}` + (top ? `;top:${top}` : '') }, text);
   $('#fx').append(b); setTimeout(() => b.remove(), 1300);
 }
 function colorFlash(color) {
@@ -1073,13 +1111,15 @@ function runEffects(evs, from) {
         const f = from[e.eid];
         if (pileEl && f) fly(f.mine ? f.rect : rectCenter(f.rect, cw * .6), pileEl.getBoundingClientRect(), { card: e.card });
         if (pileEl) { const pr = pileEl.getBoundingClientRect(), pc = (e.card && COLOR_HEX[e.card.color]) || '#fff'; setTimeout(() => burst(pr, pc), 340); }
+        setTimeout(() => cardFx(e), 360);
         break;
       }
-      case 'color': banner('Цвет: ' + COLOR_NAMES[e.color], COLOR_HEX[e.color]); colorFlash(COLOR_HEX[e.color]); Snd.play('color'); break;
-      case 'skip': banner('Пропуск хода: ' + nameOf(e.pid), '#ffd75a'); break;
-      case 'reverse': banner('Смена направления', '#4a90ff'); break;
+      case 'color': banner('Цвет: ' + COLOR_NAMES[e.color], COLOR_HEX[e.color], '63%'); colorFlash(COLOR_HEX[e.color]); Snd.play('color'); break;
+      case 'skip': { const nm = nameOf(e.pid), late = evs.some(x => x.t === 'reverse'); setTimeout(() => { bigFx('⊘', '#ffd75a', '', 'Пропуск: ' + nm); sparks(rectOf('.pile .card'), ['#ffd75a', '#fff'], 18); shake(); }, late ? 800 : 380); break; }
+      case 'reverse': setTimeout(() => { bigFx('⇄', '#4a90ff', 'rev', 'Смена направления'); if (!Settings.lite) { const sw = h('div', { class: 'sweep' + (e.direction < 0 ? ' ccw' : '') }, e.direction < 0 ? '«««' : '»»»'); $('#fx').append(sw); setTimeout(() => sw.remove(), 1000); } sparks(rectOf('.pile .card'), ['#4a90ff', '#9ec5ff', '#fff'], 22); }, 380); break;
       case 'penalty': {
-        banner(`${nameOf(e.pid)}: +${e.count}`, '#ff6676'); Snd.play('penalty'); vib('error');
+        banner(`${nameOf(e.pid)}: +${e.count}`, '#ff6676', '70%'); Snd.play('penalty'); vib('error');
+        if (e.pid === R.you) { shake(); colorFlash('#ff4d5e'); }
         if (e.pid !== R.you && deckEl) {
           const av = document.querySelector(`[data-ring="${e.pid}"]`);
           if (av) for (let i = 0; i < Math.min(e.count, 4); i++) fly(rectCenter(deckEl.getBoundingClientRect(), cw * .8), rectCenter(av.getBoundingClientRect(), cw * .5), { delay: i * 90 });
@@ -1093,7 +1133,7 @@ function runEffects(evs, from) {
           if (av) fly(rectCenter(deckEl.getBoundingClientRect(), cw * .8), rectCenter(av.getBoundingClientRect(), cw * .5));
         }
         break;
-      case 'uno': banner('UNO! ' + nameOf(e.pid), '#ffd75a'); Snd.play('uno'); break;
+      case 'uno': banner('UNO! ' + nameOf(e.pid), '#ffd75a', '24%'); Snd.play('uno'); break;
       case 'caught': banner(`Пойман! ${nameOf(e.target)} +6`, '#ff6676'); break;
       case 'timeout': toast('Время вышло: ' + nameOf(e.pid)); break;
       case 'auto': toast('За игрока ' + nameOf(e.pid) + ' ходит бот'); break;
@@ -1198,7 +1238,7 @@ function render() {
   if (S.room) return paint(S.room.status === 'lobby' ? lobbyView() : gameView());
   if (S.screen === 'stats') return paint(statsView());
   if (S.screen === 'settings') return paint(settingsView());
-  paint(menuView());
+  paint(menuView()); maybeTutorial();
 }
 function go(screen) {
   S.screen = screen; render();
@@ -1224,6 +1264,7 @@ function menuView() {
       h('button', { class: 'btn primary', onClick: () => { Snd.play('click'); openOffline(); } }, '🤖 Играть офлайн'),
       h('button', { class: 'btn blue' + (on ? '' : ' dim'), onClick: () => (on ? openCreate(false) : needNet()) }, '➕ Создать комнату'),
       h('button', { class: 'btn' + (on ? '' : ' dim'), onClick: () => (on ? openJoin('') : needNet()) }, '🚪 Войти в комнату'),
+      h('button', { class: 'btn', onClick: () => { Snd.play('click'); openRules(); } }, '📖 Как играть'),
       h('div', { class: 'row' },
         h('button', { class: 'btn small grow', onClick: () => (on ? go('stats') : needNet()) }, '🏆 Статистика'),
         h('button', { class: 'btn small grow', onClick: () => go('settings') }, '⚙️ Настройки'))));
@@ -1496,6 +1537,7 @@ function openGameMenu() {
   openSheet('Меню', [
     toggle('🔊 Звук', null, Settings.sound, v => { Settings.sound = v; Settings.save(); }),
     toggle('✨ Облегчённые анимации', null, Settings.lite, v => { Settings.lite = v; Settings.save(); }),
+    h('button', { class: 'btn small', onClick: openRules }, '📖 Как играть'),
     h('div', { class: 'muted', style: 'font-size:13px' }, (R.offline ? 'Офлайн-партия' : `Код комнаты: ${R.code}`) + ` · ${R.stacking ? 'наложение штрафов включено' : 'штрафы не накладываются'}`),
     R.offline ? null : h('button', { class: 'btn small', onClick: () => copyText(R.code) }, '📋 Скопировать код'),
     R.offline ? null : h('button', { class: 'btn small', onClick: () => { closeSheet(); invite(R); } }, '✈️ Пригласить друзей'),
@@ -1547,6 +1589,106 @@ function updateTimers() {
   document.querySelectorAll('[data-catch]').forEach(el => { el.hidden = !(live && G.uno && t < G.uno.until && G.uno.pid === el.dataset.catch); });
 }
 setInterval(updateTimers, 250);
+
+/* ========================= спецэффекты карт ========================= */
+function rectOf(sel) { const el = $(sel); return el ? el.getBoundingClientRect() : null; }
+function shake() { if (Settings.lite) return; const a = $('#app'); a.classList.remove('ashake'); void a.offsetWidth; a.classList.add('ashake'); setTimeout(() => a.classList.remove('ashake'), 600); }
+function sparks(r, cols, n) {
+  if (Settings.lite || !r) return;
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.283, d = 70 + Math.random() * 140;
+    const sp = h('i', { class: 'spark', style: `left:${cx}px;top:${cy}px;--c:${cols[i % cols.length]};--dx:${Math.cos(a) * d}px;--dy:${Math.sin(a) * d}px;animation-delay:${Math.random() * .12}s` });
+    $('#fx').append(sp); setTimeout(() => sp.remove(), 1200);
+  }
+}
+function shock(r, color, delay = 0) {
+  if (Settings.lite || !r) return;
+  const s = h('div', { class: 'shockw', style: `--bc:${color};left:${r.left + r.width / 2 - 20}px;top:${r.top + r.height / 2 - 20}px;animation-delay:${delay}ms` });
+  $('#fx').append(s); setTimeout(() => s.remove(), 1300 + delay);
+}
+function bigFx(sym, color, cls, sub) {
+  if (Settings.lite) { if (sub) banner(sub, color); return; }
+  const b = h('div', { class: 'fxbig ' + (cls || ''), style: `--bc:${color}` }, sym), t = sub ? h('div', { class: 'fxsub', style: `--bc:${color}` }, sub) : null;
+  $('#fx').append(b); if (t) $('#fx').append(t);
+  setTimeout(() => { b.remove(); if (t) t.remove(); }, 1500);
+}
+function cardFx(e) {
+  const c = e.card; if (!c || Settings.lite) return;
+  const r = rectOf('.pile .card'), col = COLOR_HEX[c.color] || '#fff', RB = ['#ff3d4f', '#ffc72e', '#1fc46a', '#2f7bff'];
+  if (c.value === 'draw2') {
+    bigFx('+2', col, '', 'Штраф: +2 карты'); shock(r, col); shock(r, '#fff', 140); sparks(r, [col, '#fff'], 28); shake(); colorFlash(col);
+  } else if (c.value === 'wild4') {
+    bigFx('+4', '#fff', 'rb', 'Штраф: +4 карты'); RB.forEach((k, i) => { shock(r, k, i * 110); setTimeout(() => colorFlash(k), i * 140); });
+    sparks(r, RB, 48); shake(); setTimeout(shake, 350);
+  } else if (c.value === 'wild') {
+    sparks(r, RB, 24);
+  }
+}
+
+/* ========================= правила (по официальным правилам Mattel) ========================= */
+const RULES = [
+  ['🎯', 'Цель игры', 'Первым избавиться от всех карт. Когда у вас остаётся одна карта — нужно крикнуть «UNO!».'],
+  ['🃏', 'Колода и раздача', 'В колоде 108 карт: в каждом из четырёх цветов по 25 (0, по две карты 1–9, по две «Пропуск», «Реверс», «+2») и 8 чёрных: 4 «Смена цвета» и 4 «+4». Каждому раздаётся по 7 карт, верхняя карта колоды открывается. Ходят по часовой стрелке.'],
+  ['👉', 'Ваш ход', 'Положите карту того же цвета, с той же цифрой или тем же символом, что и верхняя. Чёрную карту можно класть почти всегда. Нет подходящей — возьмите 1 карту из колоды: если она подходит, её можно сыграть сразу, если нет — ход пропускается.'],
+  ['⊘', 'Пропуск', 'Следующий игрок пропускает ход.'],
+  ['⇄', 'Реверс', 'Направление игры меняется. Вдвоём «Реверс» работает как «Пропуск».'],
+  ['+2', 'Возьми две', 'Следующий игрок берёт 2 карты и пропускает ход.'],
+  ['🌈', 'Смена цвета', 'Кладётся на любую карту. Вы выбираете цвет, который будет продолжать игру.'],
+  ['+4', 'Смена цвета + 4', 'Вы выбираете цвет, следующий игрок берёт 4 карты и пропускает ход. Сыграть её можно, только если у вас нет ни одной карты цвета верхней карты. В настоящей игре соперник может оспорить ход как блеф; здесь это правило проверяется автоматически, поэтому блефовать нельзя.'],
+  ['📣', 'UNO!', 'Осталась одна карта — нажмите «UNO!». Если соперник заметил, что вы не сказали, и успел нажать «ПОЙМАТЬ!» до следующего хода, вы берёте штрафные карты. Официальный штраф — 2 карты, в этой игре — 6.'],
+  ['🏆', 'Очки', 'Победитель раунда получает очки за все карты, оставшиеся у соперников: цифры — по номиналу, «Пропуск», «Реверс», «+2» — по 20, «Смена цвета» и «+4» — по 50. По официальным правилам играют до 500 очков; здесь цель выбирается при создании игры (100–500).'],
+  ['⚙️', 'Особенности этой игры', 'Опция «Наложение штрафов»: «+2» на «+2» и «+4» на «+4» передают штраф дальше (в официальных правилах такого нет). Две одинаковые цифровые карты можно сыграть сразу. Есть таймер хода.'],
+];
+function openRules() {
+  openSheet('📖 Как играть', [
+    ...RULES.map(([ic, t, p]) => h('div', { class: 'card-panel rule' }, h('div', { class: 'rt' }, ic + ' ' + t), h('div', { class: 'rp' }, p))),
+    h('button', { class: 'btn blue', onClick: openTutorial }, '🎓 Пройти обучение'),
+  ]);
+}
+
+/* ========================= обучение для новичков ========================= */
+const TUT_KEY = 'uno_tutorial_v1';
+const mc = (color, value, id) => cardEl({ id: id || 0, color, value });
+function maybeTutorial() {
+  if (S.tutShown) return; S.tutShown = true;
+  let seen = null; try { seen = localStorage.getItem(TUT_KEY); } catch (e) {}
+  if (!seen) setTimeout(() => { if (!S.room && !Local.active && S.screen === 'menu' && !$('#sheet').firstChild) openTutorial(); }, 700);
+}
+function tutQuiz() {
+  const fb = h('div', { class: 'tutfb' }, 'Нажмите на карту');
+  const opts = [['R', '2', 1, 'Верно: цвет совпадает (красный)'], ['B', '5', 1, 'Верно: цифра совпадает (5)'], ['G', '7', 0, 'Нет: и цвет, и цифра другие'], ['B', '9', 0, 'Нет: и цвет, и цифра другие']];
+  const row = h('div', { class: 'tutrow' }, opts.map(([c, v, ok, msg], i) => {
+    const el = mc(c, v, i + 2);
+    el.addEventListener('click', () => {
+      fb.textContent = (ok ? '✅ ' : '❌ ') + msg; fb.style.color = ok ? '#6df0a8' : '#ff9aa5';
+      if (ok) { el.classList.add('qok'); Snd.play('play'); } else { el.classList.remove('qno'); void el.offsetWidth; el.classList.add('qno'); Snd.play('error'); }
+    });
+    return el;
+  }));
+  return h('div', { class: 'stack' }, h('div', { class: 'tutrow' }, mc('R', '5', 1), h('span', { class: 'muted' }, '← верхняя карта')), row, fb);
+}
+const TUT = [
+  { t: 'Добро пожаловать в UNO!', p: 'Цель — первым сбросить все карты. У каждого игрока по 7 карт, ходите по очереди.', v: () => h('div', { class: 'tutrow' }, mc('R', '7'), mc('Y', 'skip'), mc('W', 'wild4'), mc('B', 'reverse')) },
+  { t: 'Как сходить', p: 'Положите карту того же цвета или с той же цифрой. Попробуйте — какие карты подходят?', v: tutQuiz },
+  { t: 'Особые карты', p: '', v: () => h('div', { class: 'stack', style: 'gap:8px' }, [['R', 'skip', 'Пропуск — следующий пропускает ход'], ['G', 'reverse', 'Реверс — меняет направление'], ['Y', 'draw2', '+2 — следующий берёт 2 карты'], ['W', 'wild', 'Смена цвета — вы выбираете цвет'], ['W', 'wild4', '+4 — следующий берёт 4; можно, только если нет карты нужного цвета']].map(([c, v, tx]) => h('div', { class: 'row' }, h('div', { style: '--cw:40px;display:flex' }, mc(c, v)), h('div', { style: 'font-size:14px;line-height:1.3' }, tx)))) },
+  { t: 'Нет подходящей карты?', p: 'Нажмите на колоду и возьмите одну карту. Подходит — сыграйте сразу, нет — нажмите «Пропустить».', v: () => h('div', { class: 'tutrow' }, cardEl(null, true), h('div', { class: 'btn small' }, '⏭ Пропустить')) },
+  { t: 'Не забудьте про UNO!', p: 'Осталась одна карта — жмите «UNO!». Не успели, и вас поймали — штраф. Соперник забыл? Жмите «ПОЙМАТЬ!» у его аватара.', v: () => h('div', { class: 'tutrow' }, h('div', { class: 'btn unobtn pulse' }, 'UNO!')) },
+  { t: 'Всё готово!', p: 'Подсвеченные карты можно сыграть, тусклые — нет. Кольцо вокруг аватара — время на ход. Хотите потренироваться с ботом?', v: () => h('div', { class: 'tutrow' }, mc('G', '3'), mc('G', 'draw2'), mc('W', 'wild')) },
+];
+function openTutorial() {
+  let i = 0; const box = h('div', { class: 'stack' });
+  const done = () => { try { localStorage.setItem(TUT_KEY, '1'); } catch (e) {} };
+  const draw = () => {
+    const st = TUT[i], last = i === TUT.length - 1;
+    box.replaceChildren(
+      h('div', { class: 'tutdots' }, TUT.map((_, k) => h('i', { class: k === i ? 'on' : '' }))),
+      h('div', { class: 'tuttitle' }, st.t), st.p ? h('div', { class: 'tuttext' }, st.p) : null, st.v(),
+      last ? [h('button', { class: 'btn primary', onClick: () => { closeSheet(); Local.start({ bot_count: 1, difficulty: 'easy', target_score: 100, turn_time: 0, stacking: false }); } }, '🤖 Тренировка с ботом'), h('button', { class: 'btn', onClick: closeSheet }, 'Закрыть')]
+        : h('div', { class: 'row' }, h('button', { class: 'btn small', onClick: closeSheet }, 'Пропустить'), h('button', { class: 'btn primary grow', onClick: () => { Snd.play('click'); i++; draw(); } }, 'Далее ▶')));
+  };
+  openSheet('🎓 Обучение', box, { onClose: done }); draw();
+}
 
 /* ========================= запуск ========================= */
 async function checkServer() {
