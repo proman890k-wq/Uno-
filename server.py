@@ -1198,11 +1198,11 @@ async def h_create_room(conn: Conn, msg: dict) -> None:
     public = get_bool(msg, "public", True)
     password = get_str(msg, "password", 16)
     allow_bots = get_bool(msg, "allow_bots", True)
-    target = get_int(msg, "target_score", 200, 100, 500)
+    target = get_int(msg, "target_score", 200, 100, 1000000)
     stacking = get_bool(msg, "stacking", False)
     turn_time = get_int(msg, "turn_time", 45, 20, 60)
     difficulty = get_str(msg, "difficulty", 12, "normal")
-    if target not in TARGETS:
+    if target not in TARGETS and target != 1000000:
         raise GameError("bad_request", "Недопустимое количество очков для победы")
     if turn_time not in TURN_TIMES:
         raise GameError("bad_request", "Недопустимое время хода")
