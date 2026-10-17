@@ -607,8 +607,10 @@ class Room:
         return len(cards)
 
     def is_playable(self, p: Player, c: dict) -> bool:
-        if self.pending:  # режим «наложения»: можно только ответить такой же картой
-            return c["value"] == self.pending_kind
+        if self.pending:  # режим «наложения»: «+4» — всегда; «+2» — того же цвета или поверх «+2»
+            if c["value"] == "wild4":
+                return True
+            return c["value"] == "draw2" and (c["color"] == self.color or self.discard[-1]["value"] == "draw2")
         if c["color"] == "W":
             if c["value"] == "wild4":
                 # официальное правило: только если нет карты текущего цвета
@@ -630,7 +632,7 @@ class Room:
 
     def _illegal_reason(self, c: dict) -> str:
         if self.pending:
-            return "Нужно ответить такой же картой «+» или взять штрафные карты"
+            return "Прибавьте «+2» (того же цвета) или «+4», либо возьмите штраф"
         if c["value"] == "wild4":
             return "«Взять четыре» можно сыграть, только если нет карты текущего цвета"
         return "Эту карту нельзя сыграть: нужен тот же цвет, значение или символ"
@@ -677,7 +679,8 @@ class Room:
             # штраф последней карты («+2»/«+4») применяется до подсчёта очков
             if v in ("draw2", "wild4"):
                 victim = self.players[self._next_index()]
-                cnt = self._give(victim, 2 if v == "draw2" else 4)
+                cnt = self._give(victim, self.pending + (2 if v == "draw2" else 4))
+                self.pending, self.pending_kind = 0, None
                 self._ev("penalty", pid=victim.pid, count=cnt)
             self._end_round(p, now)
             return
@@ -707,6 +710,12 @@ class Room:
                 self.pending += amount
                 self.pending_kind = v
                 self._advance(1, now)
+                q = self.current()
+                if self.status == "playing" and not any(self.is_playable(q, c) for c in q.hand):
+                    total, self.pending, self.pending_kind = self.pending, 0, None
+                    cnt = self._give(q, total)
+                    self._ev("penalty", pid=q.pid, count=cnt)
+                    self._advance(1, now)
             else:
                 victim = self.players[self._next_index()]
                 cnt = self._give(victim, amount)
@@ -1248,6 +1257,7 @@ async def join_room_impl(conn: Conn, code: str, password: str) -> None:
         p = room.get(pid)
         if p is not None:  # возвращение в свою комнату
             p.connected, p.disc_at = True, None
+            p.auto, p.timeouts = False, 0
             await commit(room)
             return
         if pid in room.banned:
@@ -1543,6 +1553,14 @@ async def tick_room(room: Room, now: float) -> bool:
             p.auto = True  # за отключившегося ходит бот
             room._ev("auto", pid=p.pid)
             changed = True
+    owner = room.get(room.owner)
+    if owner is not None and not owner.bot and not owner.connected and owner.disc_at is not None \
+            and now - owner.disc_at > RECONNECT_GRACE:
+        heir = next((x for x in room.players if not x.bot and x.connected), None)
+        if heir is not None:
+            room.owner = heir.pid
+            room._ev("owner", pid=heir.pid)
+            changed = True
     if room.status == "playing" and room.players:
         cur = room.current()
         if cur.bot or cur.auto:
@@ -1717,6 +1735,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 p = room.get(conn.pid)
                 if p is not None and rooms.get(room.code) is room:
                     p.connected, p.disc_at = True, None
+                    p.auto, p.timeouts = False, 0
                     room._ev("reconnected", pid=conn.pid)
                     await commit(room)
         while True:
