@@ -666,6 +666,7 @@ body.lite #splash *{animation-duration:.01ms!important;animation-delay:0s!import
 .card.back .center{-webkit-text-stroke:calc(var(--cw)*.05) #14161f;font-weight:900}
 /* фикс: z-index содержимого карты не должен «протекать» на соседние карты в перекрытой руке */
 .card{isolation:isolate}
+.opp.done{opacity:.55}
 .fxbig.rev{-webkit-text-stroke:0;color:#fff;display:flex;align-items:center;justify-content:center;width:1.1em;height:1.1em}
 .fxbig.rev svg{width:.8em;height:.8em;filter:drop-shadow(0 0 14px var(--bc)) drop-shadow(0 6px 0 rgba(0,0,0,.4))}
 .fxbig.rev::before{content:"";position:absolute;inset:0;border-radius:50%;border:.05em solid var(--bc);box-shadow:0 0 30px var(--bc),inset 0 0 24px var(--bc);background:rgba(8,12,34,.55)}
@@ -730,6 +731,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const COLOR_NAMES = { R: 'Красный', B: 'Синий', G: 'Зелёный', Y: 'Жёлтый' };
 const COLOR_HEX = { R: '#ff4d5e', B: '#4a90ff', G: '#2fd47c', Y: '#ffd75a' };
 const DIFF_NAMES = { easy: 'Лёгкий', normal: 'Средний', hard: 'Сильный' };
+const MODE_HINT = {
+  classic: 'Раунд заканчивается, когда кто-то сбросил все карты. Играем до нужного числа очков.',
+  knockout: 'Кто сбросил все карты — занимает место (1-е, 2-е, 3-е…) и выходит. Остальные играют дальше, последний — на последнем месте.',
+};
+const medal = n => ({ 1: '🥇', 2: '🥈', 3: '🥉' }[n] || '🎖');
 
 function h(tag, props, ...kids) {
   const e = document.createElement(tag);
@@ -868,6 +874,7 @@ function lHandPoints(h) { return h.reduce((s, c) => s + lPoints(c), 0); }
 class LocalGame {
   constructor(o) {
     this.target = o.target_score; this.turnTime = o.turn_time || 0; this.stacking = o.stacking !== false;
+    this.mode = o.mode === 'knockout' ? 'knockout' : 'classic'; this.placements = []; this.series = 0;
     this.players = [{ id: 'me', name: o.name, photo: o.photo || null, bot: false, difficulty: null, hand: [], uno_called: false }];
     for (let i = 0; i < o.bot_count; i++) this.players.push({ id: 'bot' + i, name: L_BOT_NAMES[i], photo: null, bot: true, difficulty: o.difficulty, hand: [], uno_called: false });
     this.scores = {}; this.players.forEach(p => { this.scores[p.id] = 0; });
@@ -879,9 +886,16 @@ class LocalGame {
   ev(t, o) { this.events.push({ eid: ++this.seq, t, ...o }); }
   cur() { return this.players[this.turn]; }
   get(pid) { return this.players.find(p => p.id === pid); }
-  nextIndex() { const n = this.players.length; return ((this.turn + this.direction) % n + n) % n; }
+  finIds() { return new Set(this.placements.map(e => e.id)); }
+  active() { const f = this.finIds(); return this.players.filter(p => !f.has(p.id)); }
+  placeOf(pid) { const i = this.placements.findIndex(e => e.id === pid); return i < 0 ? null : i + 1; }
+  nextIndex() {
+    const n = this.players.length, f = this.finIds(); let i = this.turn;
+    for (let k = 0; k < n; k++) { i = ((i + this.direction) % n + n) % n; if (!f.has(this.players[i].id)) return i; }
+    return this.turn;
+  }
 
-  startSeries(now) { this.round_no = 0; this.players.forEach(p => { this.scores[p.id] = 0; }); this.startRound(now); }
+  startSeries(now) { this.series++; this.placements = []; this.round_no = 0; this.players.forEach(p => { this.scores[p.id] = 0; }); this.startRound(now); }
   nextRound(now) {
     if (this.status === 'round_over') this.startRound(now);
     else if (this.status === 'match_over') this.startSeries(now);
@@ -896,13 +910,22 @@ class LocalGame {
     for (;;) { c = this.deck.pop(); if (/^\d$/.test(c.value)) break; this.deck.unshift(c); }
     this.discard = [c]; this.color = c.color; this.direction = 1;
     this.pending = 0; this.pendingKind = null; this.result = null; this.uno = null; this.status = 'playing';
-    this.turn = (this.round_no - 1) % this.players.length;
+    this.placements = [];
+    this.turn = (this.round_no - 1 + (this.mode === 'knockout' ? this.series - 1 : 0)) % this.players.length;
     this.ev('deal', { round: this.round_no });
     this.beginTurn(now);
   }
   beginTurn(now) { this.drawn = null; this.deadline = this.turnTime > 0 ? now + this.turnTime : null; this.scheduleBot(now); }
   scheduleBot(now) { this.botAt = this.cur().bot ? now + 0.9 + Math.random() * 0.9 : null; }
-  advance(steps, now) { const n = this.players.length; this.turn = (((this.turn + this.direction * steps) % n) + n) % n; this.beginTurn(now); }
+  advance(steps, now) {
+    const n = this.players.length, f = this.finIds();
+    for (let s = 0; s < steps; s++) {
+      let i = this.turn;
+      for (let k = 0; k < n; k++) { i = ((i + this.direction) % n + n) % n; if (!f.has(this.players[i].id)) break; }
+      this.turn = i;
+    }
+    this.beginTurn(now);
+  }
 
   drawCards(n) {
     const out = [];
@@ -958,8 +981,13 @@ class LocalGame {
     this.uno = null; this.drawn = null;
     this.ev('play', { pid: p.id, card, color: this.color });
     if (card.color === 'W') this.ev('color', { pid: p.id, color: this.color });
-    const left = p.hand.length, v = card.value, n = this.players.length;
-    if (left === 0) {
+    const left = p.hand.length, v = card.value;
+    if (left === 0 && this.mode === 'knockout') {
+      this.finishPlayer(p);
+      if (this.active().length <= 1) { this.endKnockout(now); return; }
+    }
+    const out = this.finIds().has(p.id), na = this.active().length;
+    if (left === 0 && this.mode !== 'knockout') {
       if (v === 'draw2' || v === 'wild4') { const victim = this.players[this.nextIndex()]; const cnt = this.give(victim, (this.pending || 0) + (v === 'draw2' ? 2 : 4)); this.pending = 0; this.pendingKind = null; this.ev('penalty', { pid: victim.id, count: cnt }); }
       this.endRound(p, now); return;
     }
@@ -969,7 +997,7 @@ class LocalGame {
     } else if (left >= 3) p.uno_called = false;
     if (v === 'reverse') {
       this.direction *= -1; this.ev('reverse', { direction: this.direction });
-      if (n === 2) { this.ev('skip', { pid: this.players[this.nextIndex()].id }); this.advance(0, now); } else this.advance(1, now);
+      if (na === 2 && !out) { this.ev('skip', { pid: this.players[this.nextIndex()].id }); this.advance(0, now); } else this.advance(1, now);
     } else if (v === 'skip') {
       this.ev('skip', { pid: this.players[this.nextIndex()].id }); this.advance(2, now);
     } else if (v === 'draw2' || v === 'wild4') {
@@ -1069,6 +1097,18 @@ class LocalGame {
     return best[Math.floor(Math.random() * best.length)];
   }
 
+  finishPlayer(p) { this.placements.push({ id: p.id, name: p.name, photo: p.photo, bot: p.bot }); this.ev('place', { pid: p.id, place: this.placements.length }); }
+  endKnockout(now) {
+    for (const x of this.active()) this.finishPlayer(x);
+    this.status = 'match_over'; this.deadline = null; this.botAt = null; this.uno = null; this.drawn = null; this.pending = 0; this.pendingKind = null;
+    const first = this.placements[0];
+    this.result = {
+      mode: 'knockout', winner: first.id, winner_name: first.name, points: 0, match_over: true, match_winner: first.id, target: 0,
+      places: this.placements.map((e, i) => ({ ...e, place: i + 1 })),
+      players: this.players.map(x => ({ id: x.id, name: x.name, photo: x.photo, bot: x.bot, cards: x.hand.length, hand_points: lHandPoints(x.hand), score: 0 })),
+    };
+    this.ev('round_end', { winner: first.id, points: 0, match_over: true });
+  }
   endRound(winner, now) {
     const pts = this.players.filter(x => x !== winner).reduce((s, x) => s + lHandPoints(x.hand), 0);
     this.scores[winner.id] += pts;
@@ -1102,9 +1142,9 @@ class LocalGame {
     const myTurn = playing && this.cur().id === me, u = this.uno;
     const hand = my.hand.slice().sort((a, b) => (L_COLOR_ORDER[a.color] - L_COLOR_ORDER[b.color]) || (L_VALUE_ORDER[a.value] - L_VALUE_ORDER[b.value]) || (a.id - b.id));
     return {
-      code: 'OFFLINE', offline: true, name: 'Игра против ботов', owner: me, public: false, has_password: false, max_players: this.players.length,
+      code: 'OFFLINE', offline: true, mode: this.mode, name: 'Игра против ботов', owner: me, public: false, has_password: false, max_players: this.players.length,
       allow_bots: true, target_score: this.target, stacking: this.stacking, turn_time: this.turnTime, status: this.status, round_no: this.round_no, ranked: false,
-      players: this.players.map(p => ({ id: p.id, name: p.name, photo: p.photo, bot: p.bot, difficulty: p.difficulty, connected: true, auto: false, cards: p.hand.length, score: this.scores[p.id], uno: !!(p.uno_called && p.hand.length === 1), owner: p.id === me })),
+      players: this.players.map(p => ({ id: p.id, name: p.name, photo: p.photo, bot: p.bot, difficulty: p.difficulty, connected: true, auto: false, cards: p.hand.length, score: this.scores[p.id], uno: !!(p.uno_called && p.hand.length === 1), owner: p.id === me, place: this.placeOf(p.id) })),
       you: me, server_time: now, events: this.events.slice(),
       game: {
         top: this.discard[this.discard.length - 1], color: this.color, direction: this.direction, turn: playing ? this.cur().id : null, deck: this.deck.length,
@@ -1442,6 +1482,7 @@ function runEffects(evs, from) {
           if (av) fly(rectCenter(deckEl.getBoundingClientRect(), cw * .8), rectCenter(av.getBoundingClientRect(), cw * .5));
         }
         break;
+      case 'place': banner(`${medal(e.place)} ${nameOf(e.pid)}: ${e.place} место`, '#ffd75a', '38%'); Snd.play(e.pid === R.you ? 'win' : 'color'); if (e.pid === R.you) { vib('ok'); confetti(50); } break;
       case 'uno': banner('UNO! ' + nameOf(e.pid), '#ffd75a', '24%'); Snd.play('uno'); break;
       case 'caught': banner(`Пойман! ${nameOf(e.target)} +6`, '#ff6676'); break;
       case 'timeout': toast('Время вышло: ' + nameOf(e.pid)); break;
@@ -1600,9 +1641,11 @@ async function quickPlay() { Snd.play('click'); await act('quick_play'); }
 
 /* ----- офлайн-партия против ботов ----- */
 function openOffline() {
-  const f = { bot_count: 3, difficulty: 'normal', target_score: 1000000, turn_time: 0, stacking: true };
+  const hint = h('div', { class: 'muted', style: 'font-size:12px;line-height:1.4;margin-top:6px' }, MODE_HINT.classic);
+  const f = { mode: 'classic', bot_count: 3, difficulty: 'normal', target_score: 1000000, turn_time: 0, stacking: true };
   openSheet('Игра против ботов', [
     h('div', { class: 'muted', style: 'font-size:13px;line-height:1.4' }, 'Работает без интернета и без сервера. Результаты в статистику не записываются.'),
+    h('div', { class: 'field' }, h('label', null, 'Режим игры'), seg([['classic', 'Классика'], ['knockout', 'Выбивание']], 'classic', v => { f.mode = v; hint.textContent = MODE_HINT[v]; }), hint),
     h('div', { class: 'field' }, h('label', null, 'Соперники-боты'), seg([[1, '1'], [2, '2'], [3, '3']], 3, v => { f.bot_count = v; })),
     h('div', { class: 'field' }, h('label', null, 'Сложность'), seg([['easy', 'Лёгкий'], ['normal', 'Средний'], ['hard', 'Сильный']], 'normal', v => { f.difficulty = v; })),
     h('div', { class: 'field' }, h('label', null, 'Время на ход, сек'), seg([[0, '∞'], [30, '30'], [45, '45'], [60, '60']], 0, v => { f.turn_time = v; })),
@@ -1613,10 +1656,12 @@ function openOffline() {
 
 /* ----- создание комнаты ----- */
 function openCreate(quick) {
-  const f = { name: '', max_players: 4, public: true, password: '', allow_bots: true, target_score: 1000000, stacking: true, turn_time: 45 };
+  const hint = h('div', { class: 'muted', style: 'font-size:12px;line-height:1.4;margin-top:6px' }, MODE_HINT.classic);
+  const f = { mode: 'classic', name: '', max_players: 4, public: true, password: '', allow_bots: true, target_score: 1000000, stacking: true, turn_time: 45 };
   const pw = h('div', { class: 'field', hidden: true }, h('label', null, 'Пароль (необязательно)'), h('input', { type: 'password', maxlength: '16', autocomplete: 'off', placeholder: 'Оставьте пустым — вход по коду', onInput: e => { f.password = e.target.value; } }));
   const body = [
     h('div', { class: 'field' }, h('label', null, 'Название комнаты'), h('input', { type: 'text', maxlength: '24', placeholder: 'Например, «Вечерний UNO»', onInput: e => { f.name = e.target.value; } })),
+    h('div', { class: 'field' }, h('label', null, 'Режим игры'), seg([['classic', 'Классика'], ['knockout', 'Выбивание']], 'classic', v => { f.mode = v; hint.textContent = MODE_HINT[v]; }), hint),
     h('div', { class: 'field' }, h('label', null, 'Количество игроков'), seg([[2, '2'], [3, '3'], [4, '4']], 4, v => { f.max_players = v; })),
     h('div', { class: 'field' }, h('label', null, 'Доступ'), seg([[true, '🌐 Публичная'], [false, '🔒 Приватная']], true, v => { f.public = v; pw.hidden = v; })),
     pw,
@@ -1652,7 +1697,7 @@ function fillRooms() {
   const box = $('#rooms-list'); if (!box) return;
   if (!S.rooms.length) { box.replaceChildren(h('div', { class: 'muted', style: 'text-align:center;padding:10px' }, 'Публичных комнат пока нет')); return; }
   box.replaceChildren(...S.rooms.map(r => h('button', { class: 'room-item', onClick: () => window.__joinFromList(r) },
-    h('div', { class: 'grow' }, h('div', { class: 'nm' }, (r.has_password ? '🔒 ' : '') + r.name), h('div', { class: 'muted', style: 'font-size:12px' }, `Код ${r.code} · хозяин ${r.owner_name || '—'}`)),
+    h('div', { class: 'grow' }, h('div', { class: 'nm' }, (r.has_password ? '🔒 ' : '') + r.name), h('div', { class: 'muted', style: 'font-size:12px' }, `Код ${r.code} · хозяин ${r.owner_name || '—'}` + (r.mode === 'knockout' ? ' · Выбивание' : ''))),
     h('div', { style: 'text-align:right' }, h('div', { style: 'font-weight:800' }, `${r.players}/${r.max_players}`), h('span', { class: 'badge' + (r.status === 'lobby' ? '' : ' busy') }, r.status === 'lobby' ? 'Ожидание' : 'Идёт игра')))));
 }
 
@@ -1715,7 +1760,7 @@ function lobbyView() {
     h('div', { class: 'lobby-head' }, h('button', { class: 'icon-btn', onClick: leaveRoom, 'aria-label': 'Выйти' }, '←'), h('div', { class: 't grow' }, R.name)),
     h('div', { class: 'chips' }, h('span', { class: 'chip' }, R.public ? '🌐 Публичная' : '🔒 Приватная'), R.has_password ? h('span', { class: 'chip' }, '🔑 Пароль') : null,
       h('span', { class: 'chip' }, '⏱ ' + R.turn_time + ' с'),
-      R.allow_bots ? h('span', { class: 'chip' }, '🤖 Боты') : null, R.stacking ? h('span', { class: 'chip' }, '➕ Наложение') : null),
+      R.mode === 'knockout' ? h('span', { class: 'chip' }, '🎯 Выбивание') : null, R.allow_bots ? h('span', { class: 'chip' }, '🤖 Боты') : null, R.stacking ? h('span', { class: 'chip' }, '➕ Наложение') : null),
     h('div', { class: 'card-panel stack', style: 'gap:10px' },
       h('div', { class: 'codebox' }, h('div', null, h('div', { class: 'muted', style: 'font-size:12px' }, 'Код комнаты'), h('div', { class: 'code' }, R.code)),
         h('button', { class: 'btn small', onClick: () => copyText(R.code) }, '📋 Скопировать код')),
@@ -1745,12 +1790,12 @@ function gameView() {
   const mePl = R.players[idx];
   const turnPl = R.players.find(p => p.id === G.turn);
 
-  const oppEls = opps.map(p => h('div', { class: 'opp' + (G.turn === p.id ? ' turn' : '') + (p.connected || p.bot ? '' : ' gone') },
+  const oppEls = opps.map(p => h('div', { class: 'opp' + (G.turn === p.id ? ' turn' : '') + (p.connected || p.bot ? '' : ' gone') + (p.place ? ' done' : '') },
     h('div', { class: 'ring', 'data-ring': p.id }, avatar(p, 46)),
     h('div', { class: 'nm' }, p.name),
-    h('div', { class: 'meta' }, h('span', { class: 'cnt' }, '🂠 ' + p.cards), h('span', null, '🏆' + p.score)),
+    h('div', { class: 'meta' }, h('span', { class: 'cnt' }, '🂠 ' + p.cards), R.mode === 'knockout' ? (p.place ? h('span', null, medal(p.place) + ' ' + p.place) : null) : h('span', null, '🏆' + p.score)),
     h('div', { class: 'minis' }, Array.from({ length: Math.min(p.cards, 7) }, () => h('div', { class: 'mini' }))),
-    !p.connected && !p.bot ? h('div', { class: 'tag' }, 'нет связи') : (p.auto ? h('div', { class: 'tag' }, 'авто') : (p.uno ? h('div', { class: 'tag uno' }, 'UNO') : null)),
+    p.place ? h('div', { class: 'tag' }, medal(p.place) + ' ' + p.place + ' место') : !p.connected && !p.bot ? h('div', { class: 'tag' }, 'нет связи') : (p.auto ? h('div', { class: 'tag' }, 'авто') : (p.uno ? h('div', { class: 'tag uno' }, 'UNO') : null)),
     G.uno && G.uno.pid === p.id ? h('button', { class: 'catch-btn', 'data-catch': p.id, onClick: () => act('catch_uno', { target: p.id }) }, 'ПОЙМАТЬ!') : null));
 
   // верхняя карта (во время анимации показываем предыдущую)
@@ -1760,6 +1805,7 @@ function gameView() {
 
   let status = '', statusCls = 'status';
   if (!playing) status = '';
+  else if (R.mode === 'knockout' && mePl.place) { status = `${medal(mePl.place)} Вы заняли ${mePl.place} место — наблюдаете за игрой`; statusCls += ' mine'; }
   else if (myTurn && G.pending) { status = `Возьмите +${G.pending} или добавьте «+2» (того же цвета) / «+4»`; statusCls += ' mine'; }
   else if (myTurn && G.can_pass) { status = 'Сыграйте взятую карту или пропустите ход'; statusCls += ' mine'; }
   else if (myTurn) { status = 'Ваш ход'; statusCls += ' mine'; }
@@ -1788,7 +1834,7 @@ function gameView() {
   const root = h('div', { class: 'game' },
     h('div', { class: 'topbar' },
       h('button', { class: 'icon-btn', onClick: openGameMenu, 'aria-label': 'Меню' }, '☰'),
-      h('div', { class: 'rc' }, h('div', { class: 'rn' }, R.name), h('div', { class: 'rcode' }, `${R.offline ? 'ОФЛАЙН' : 'КОД ' + R.code} · РАУНД ${R.round_no}`)),
+      h('div', { class: 'rc' }, h('div', { class: 'rn' }, R.name), h('div', { class: 'rcode' }, `${R.offline ? 'ОФЛАЙН' : 'КОД ' + R.code} · ${R.mode === 'knockout' ? 'ВЫБИВАНИЕ' : 'РАУНД ' + R.round_no}`)),
       h('span', { class: 'fgmini', title: 'Farm Games Studio' }, 'FG')),
     h('div', { class: 'opps' }, oppEls),
     h('div', { class: 'table' },
@@ -1800,7 +1846,7 @@ function gameView() {
         h('div', { class: 'cname', style: `color:${colorHex}` }, COLOR_NAMES[G.color] || ''))),
     h('div', { class: 'side' },
       h('div', { class: statusCls }, status),
-      h('div', { class: 'mebar' }, h('div', { class: 'ring', 'data-ring': me, style: 'padding:2px' }, avatar(mePl, 30)), h('div', { class: 'nm' }, mePl.name), h('span', { class: 'cnt' }, '🏆 ' + mePl.score),
+      h('div', { class: 'mebar' }, h('div', { class: 'ring', 'data-ring': me, style: 'padding:2px' }, avatar(mePl, 30)), h('div', { class: 'nm' }, mePl.name), R.mode === 'knockout' ? (mePl.place ? h('span', { class: 'cnt' }, medal(mePl.place) + ' ' + mePl.place) : null) : h('span', { class: 'cnt' }, '🏆 ' + mePl.score),
         h('div', { class: 'tbar', id: 'tbar' }, h('i')), h('span', { class: 'muted', id: 'tleft', style: 'font-size:12px;width:34px;text-align:right' })),
       h('div', { class: 'actions' },
         h('button', { class: 'btn', disabled: !G.can_draw, onClick: drawCard }, G.pending && myTurn ? `📥 Взять +${G.pending}` : '📥 Взять карту'),
@@ -1883,6 +1929,7 @@ function openGameMenu() {
 /* ----- итоги раунда ----- */
 function resultsView(R) {
   const res = R.game.result, me = R.you; if (!res) return h('div');
+  if (res.places) return resultsKnockout(R, res);
   const isOwner = R.owner === me, over = res.match_over, won = res.winner === me;
   const rows = [...res.players].sort((a, b) => (b.id === res.winner) - (a.id === res.winner) || b.score - a.score).map(p => h('div', { class: 'res-row' + (p.id === res.winner ? ' win' : '') },
     avatar(p, 38),
@@ -1896,6 +1943,25 @@ function resultsView(R) {
     h('div', { class: 'muted', style: 'text-align:center;font-size:13px' }, `Раунд ${R.round_no} завершён`),
     rows,
     isOwner ? h('button', { class: 'btn primary', onClick: () => act('next_round') }, over ? '🔁 Реванш' : '▶ Следующий раунд') : h('div', { class: 'muted', style: 'text-align:center;padding:6px' }, '⏳ Ждём решения владельца…'),
+    R.offline ? h('button', { class: 'btn small red', onClick: () => act('leave_room') }, '🏠 В меню')
+      : h('div', { class: 'row' },
+        isOwner ? h('button', { class: 'btn small grow', onClick: () => act('return_to_lobby') }, '↩ Вернуться в лобби') : null,
+        h('button', { class: 'btn small red grow', onClick: () => act('leave_room') }, 'Выйти'))));
+}
+
+function resultsKnockout(R, res) {
+  const me = R.you, isOwner = R.owner === me, last = res.places.length;
+  const my = (res.places.find(e => e.id === me) || {}).place;
+  const rows = res.places.map(e => h('div', { class: 'res-row' + (e.place === 1 ? ' win' : '') }, avatar(e, 38),
+    h('div', { class: 'grow' }, h('div', { style: 'font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, e.name + (e.id === me ? ' (вы)' : '')),
+      h('div', { class: 'muted', style: 'font-size:12px' }, e.place === 1 ? 'Первым сбросил все карты' : (e.place === last ? 'Остался последним' : 'Сбросил все карты'))),
+    h('div', { style: 'text-align:right;font-weight:800;font-size:18px;white-space:nowrap' }, medal(e.place) + ' ' + e.place)));
+  return h('div', { class: 'results' }, h('div', { class: 'res-card' },
+    h('div', { class: 'crown' }, my === 1 ? '🏆' : '🎯'),
+    h('div', { class: 'res-title' }, my === 1 ? 'Вы выиграли!' : (my ? `Вы заняли ${my} место` : `Победил ${res.winner_name}`)),
+    h('div', { class: 'muted', style: 'text-align:center;font-size:13px' }, 'Режим «Выбивание»'),
+    rows,
+    isOwner ? h('button', { class: 'btn primary', onClick: () => act('next_round') }, '🔁 Реванш') : h('div', { class: 'muted', style: 'text-align:center;padding:6px' }, '⏳ Ждём решения владельца…'),
     R.offline ? h('button', { class: 'btn small red', onClick: () => act('leave_room') }, '🏠 В меню')
       : h('div', { class: 'row' },
         isOwner ? h('button', { class: 'btn small grow', onClick: () => act('return_to_lobby') }, '↩ Вернуться в лобби') : null,
@@ -1961,7 +2027,8 @@ function stamp(pid, sym, color, delay = 0) {
 function stampNext(pid, sym, color) {
   const R = S.room; if (!R || !R.game) return;
   const n = R.players.length, i = R.players.findIndex(p => p.id === pid); if (i < 0) return;
-  const nx = R.players[(i + (R.game.direction || 1) + n) % n]; if (nx) stamp(nx.id, sym, color);
+  let j = i; for (let k = 0; k < n; k++) { j = (j + (R.game.direction || 1) + n) % n; if (!R.players[j].place) break; }
+  const nx = R.players[j]; if (nx) stamp(nx.id, sym, color);
 }
 function cardFx(e) {
   const c = e.card; if (!c || Settings.lite) return;
@@ -1979,6 +2046,7 @@ function cardFx(e) {
 /* ========================= правила (по официальным правилам Mattel) ========================= */
 const RULES = [
   ['🎯', 'Цель игры', 'Первым избавиться от всех карт. Когда у вас остаётся одна карта — нужно крикнуть «UNO!».'],
+  ['🎯', 'Режимы игры', 'Классика — раунд заканчивается, когда кто-то сбросил все карты; он получает очки за карты соперников, играем до нужной суммы. Выбивание — кто первым сбросил все карты, занимает 1-е место и выходит; остальные играют дальше за 2-е, 3-е место и так далее, пока не останется один — он занимает последнее место.'],
   ['🃏', 'Колода и раздача', 'В колоде 108 карт: в каждом из четырёх цветов по 25 (0, по две карты 1–9, по две «Пропуск», «Реверс», «+2») и 8 чёрных: 4 «Смена цвета» и 4 «+4». Каждому раздаётся по 7 карт, верхняя карта колоды открывается. Ходят по часовой стрелке.'],
   ['👉', 'Ваш ход', 'Положите карту того же цвета, с той же цифрой или тем же символом, что и верхняя. Чёрную карту можно класть почти всегда. Нет подходящей — возьмите 1 карту из колоды: если она подходит, её можно сыграть сразу, если нет — ход пропускается.'],
   ['⊘', 'Пропуск', 'Следующий игрок пропускает ход.'],
@@ -1987,7 +2055,7 @@ const RULES = [
   ['🌈', 'Смена цвета', 'Кладётся на любую карту. Вы выбираете цвет, который будет продолжать игру.'],
   ['+4', 'Смена цвета + 4', 'Вы выбираете цвет, следующий игрок берёт 4 карты и пропускает ход. Сыграть её можно, только если у вас нет ни одной карты цвета верхней карты. В настоящей игре соперник может оспорить ход как блеф; здесь это правило проверяется автоматически, поэтому блефовать нельзя.'],
   ['📣', 'UNO!', 'Осталась одна карта — нажмите «UNO!». Если соперник заметил, что вы не сказали, и успел нажать «ПОЙМАТЬ!» до следующего хода, вы берёте штрафные карты. Официальный штраф — 2 карты, в этой игре — 6.'],
-  ['🏆', 'Очки', 'Победитель раунда получает очки за все карты, оставшиеся у соперников: цифры — по номиналу, «Пропуск», «Реверс», «+2» — по 20, «Смена цвета» и «+4» — по 50. Очки копятся от раунда к раунду — играйте сколько хотите.'],
+  ['🏆', 'Очки', 'В «Классике» победитель раунда получает очки за все карты, оставшиеся у соперников: цифры — по номиналу, «Пропуск», «Реверс», «+2» — по 20, «Смена цвета» и «+4» — по 50. Очки копятся от раунда к раунду — играйте сколько хотите. В «Выбивании» очков нет — важно только место.'],
   ['⚙️', 'Особенности этой игры', 'Штрафы суммируются: на «+2» можно положить «+2» (или «+4»), на «+4» — «+4» или «+2» выбранного цвета; общий штраф уходит дальше. Если у следующего нет подходящей карты, он берёт всё автоматически. Две одинаковые цифровые карты можно сыграть сразу. Есть таймер хода.'],
 ];
 function openRules() {
