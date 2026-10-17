@@ -89,6 +89,7 @@ CODE_LEN = 5
 TARGETS = (100, 200, 300, 500)
 TURN_TIMES = (20, 30, 45, 60)
 DIFFICULTIES = ("easy", "normal", "hard")
+MODES = ("classic", "knockout")
 BOT_NAMES = ["Бот Макс", "Бот Лина", "Бот Артём", "Бот Зоя", "Бот Тимур", "Бот Ника"]
 BOT_UNO_RATE = {"easy": 0.6, "normal": 0.85, "hard": 0.98}
 BOT_CATCH_RATE = {"easy": 0.2, "normal": 0.5, "hard": 0.85}
@@ -394,14 +395,16 @@ class Player:
 PERSIST_FIELDS = (
     "uid", "pw_salt", "pw_hash", "status", "round_no", "series", "ranked", "scores", "deck", "discard", "color",
     "direction", "turn", "drawn", "pending", "pending_kind", "turn_deadline", "bot_at", "uno", "forfeit_points",
-    "result", "created", "event_seq",
+    "result", "created", "event_seq", "placements",
 )
 
 
 class Room:
     def __init__(self, code: str, name: str, owner: str, max_players: int = 4, public: bool = True,
-                 allow_bots: bool = True, target_score: int = 200, stacking: bool = False, turn_time: int = 45):
+                 allow_bots: bool = True, target_score: int = 200, stacking: bool = False, turn_time: int = 45,
+                 mode: str = "classic"):
         self.code = code
+        self.mode = mode if mode in MODES else "classic"  # classic | knockout (выбивание: места 1, 2, 3…)
         self.uid = uuid.uuid4().hex[:12]
         self.name = name
         self.owner = owner
@@ -434,6 +437,7 @@ class Room:
         self.uno: Optional[dict] = None
         self.forfeit_points = 0
         self.result: Optional[dict] = None
+        self.placements: list[dict] = []  # выбивание: игроки в порядке выхода (1-е место, 2-е, …)
         # служебное (не сохраняется)
         self.created = time.time()
         self.empty_since: Optional[float] = None
@@ -508,6 +512,7 @@ class Room:
         self.turn_deadline = None
         self.bot_at = None
         self.forfeit_points = 0
+        self.placements = []
         for p in self.players:
             p.hand = []
             p.uno_called = False
@@ -555,10 +560,12 @@ class Room:
         self.direction = 1
         self.pending, self.pending_kind = 0, None
         self.forfeit_points = 0
+        self.placements = []
         self.result = None
         self.uno = None
         self.status = "playing"
-        self.turn = (self.round_no - 1) % len(self.players)
+        # в «выбивании» каждая серия — один раунд, поэтому стартующего меняем по номеру серии
+        self.turn = (self.round_no - 1 + (self.series - 1 if self.mode == "knockout" else 0)) % len(self.players)
         self._ev("deal", round=self.round_no)
         self._begin_turn(now)
 
@@ -572,12 +579,35 @@ class Room:
         p = self.current()
         self.bot_at = now + random.uniform(0.9, 1.8) if (p.bot or p.auto) else None
 
+    def _fin_ids(self) -> set:
+        return {e["id"] for e in self.placements}
+
+    def _active(self) -> list:
+        """Игроки, которые ещё в игре (в «выбивании» — те, кто не занял место)."""
+        fin = self._fin_ids()
+        return [p for p in self.players if p.pid not in fin]
+
     def _advance(self, steps: int, now: float) -> None:
-        self.turn = (self.turn + self.direction * steps) % len(self.players)
+        n = len(self.players)
+        fin = self._fin_ids()
+        for _ in range(steps):
+            i = self.turn
+            for _ in range(n):
+                i = (i + self.direction) % n
+                if self.players[i].pid not in fin:
+                    break
+            self.turn = i
         self._begin_turn(now)
 
     def _next_index(self) -> int:
-        return (self.turn + self.direction) % len(self.players)
+        n = len(self.players)
+        fin = self._fin_ids()
+        i = self.turn
+        for _ in range(n):
+            i = (i + self.direction) % n
+            if self.players[i].pid not in fin:
+                return i
+        return self.turn
 
     def _check_turn(self, pid: str) -> None:
         if self.status != "playing":
@@ -674,8 +704,15 @@ class Room:
             self._ev("color", pid=p.pid, color=self.color)
         left = len(p.hand)
         v = card["value"]
-        n = len(self.players)
-        if left == 0:
+        if left == 0 and self.mode == "knockout":
+            # выбивание: игрок занял место и выходит из игры, остальные продолжают
+            self._finish_player(p)
+            if len(self._active()) <= 1:
+                self._end_knockout(now)
+                return
+        out = p.pid in self._fin_ids()
+        na = len(self._active())
+        if left == 0 and self.mode != "knockout":
             # штраф последней карты («+2»/«+4») применяется до подсчёта очков
             if v in ("draw2", "wild4"):
                 victim = self.players[self._next_index()]
@@ -696,7 +733,7 @@ class Room:
         if v == "reverse":
             self.direction *= -1
             self._ev("reverse", direction=self.direction)
-            if n == 2:  # при двух игроках «Смена направления» работает как «Пропуск»
+            if na == 2 and not out:  # при двух игроках «Смена направления» работает как «Пропуск»
                 self._ev("skip", pid=self.players[self._next_index()].pid)
                 self._advance(0, now)
             else:
@@ -896,6 +933,44 @@ class Room:
                     self.pending_stats.append({"kind": "match", "event_id": self._eid("m", x.pid), "pid": x.pid,
                                                "won": x is winner, "score": self.scores.get(x.pid, 0)})
 
+    def _finish_player(self, p: Player) -> None:
+        self.placements.append({"id": p.pid, "name": p.name, "photo": p.photo, "bot": p.bot})
+        self._ev("place", pid=p.pid, place=len(self.placements))
+
+    def _end_knockout(self, now: float, forced: bool = False) -> None:
+        for x in self._active():  # последний оставшийся занимает последнее место
+            self._finish_player(x)
+        self.status = "match_over"
+        self.turn_deadline = None
+        self.bot_at = None
+        self.uno = None
+        self.drawn = None
+        self.pending, self.pending_kind = 0, None
+        first = self.placements[0]
+        pos = {e["id"]: i + 1 for i, e in enumerate(self.placements)}
+        self.result = {
+            "mode": "knockout",
+            "winner": first["id"], "winner_name": first["name"], "points": 0,
+            "match_over": True, "match_winner": first["id"], "target": 0,
+            "places": [{**e, "place": i + 1} for i, e in enumerate(self.placements)],
+            "players": [
+                {"id": x.pid, "name": x.name, "photo": x.photo, "bot": x.bot, "cards": len(x.hand),
+                 "hand_points": hand_points(x.hand), "score": 0}
+                for x in self.players
+            ],
+        }
+        self._ev("round_end", winner=first["id"], points=0, match_over=True)
+        if self.ranked:
+            for x in self.players:
+                if x.bot:
+                    continue
+                won = pos.get(x.pid) == 1
+                if not forced:
+                    self.pending_stats.append({"kind": "round", "event_id": self._eid("r", x.pid), "pid": x.pid,
+                                               "won": won, "points": 0})
+                self.pending_stats.append({"kind": "match", "event_id": self._eid("m", x.pid), "pid": x.pid,
+                                           "won": won, "score": 0})
+
     # ---- выход игрока ------------------------------------------------------
     def remove_player(self, pid: str, now: float) -> bool:
         """Убирает игрока из комнаты. Возвращает True, если комнату нужно закрыть."""
@@ -903,7 +978,7 @@ class Room:
         if idx < 0:
             return False
         p = self.players[idx]
-        if self.ranked and not p.bot and self.status in ("playing", "round_over"):
+        if self.ranked and not p.bot and self.status in ("playing", "round_over") and p.pid not in self._fin_ids():
             self.pending_stats.append({"kind": "match", "event_id": self._eid("m", pid), "pid": pid,
                                        "won": False, "score": self.scores.get(pid, 0)})
         was_current = self.status == "playing" and idx == self.turn
@@ -923,7 +998,9 @@ class Room:
             self.owner = next((x for x in humans if x.connected), humans[0]).pid
         n = len(self.players)
         if self.status == "playing":
-            if n < 2:
+            if self.mode == "knockout" and len(self._active()) < 2:
+                self._end_knockout(now, forced=True)
+            elif n < 2:
                 self._end_round(self.players[0], now, forced=True)
             else:
                 if idx < self.turn:
@@ -932,6 +1009,8 @@ class Room:
                     self.turn = idx % n if self.direction == 1 else (idx - 1) % n
                     self._begin_turn(now)
                 self.turn %= n
+                if self.players[self.turn].pid in self._fin_ids():
+                    self._advance(1, now)
         elif self.status in ("round_over", "match_over") and n < 2:
             self.reset_to_lobby()
         return False
@@ -946,6 +1025,7 @@ class Room:
             "score": self.scores.get(p.pid, 0),
             "uno": bool(p.uno_called and len(p.hand) == 1),
             "owner": p.pid == self.owner,
+            "place": next((i + 1 for i, e in enumerate(self.placements) if e["id"] == p.pid), None),
         }
 
     def view(self, pid: str, with_events: bool = True) -> dict:
@@ -954,7 +1034,7 @@ class Room:
             "code": self.code, "name": self.name, "owner": self.owner, "public": self.public,
             "has_password": bool(self.pw_hash), "max_players": self.max_players,
             "allow_bots": self.allow_bots, "target_score": self.target_score,
-            "stacking": self.stacking, "turn_time": self.turn_time,
+            "stacking": self.stacking, "turn_time": self.turn_time, "mode": self.mode,
             "status": self.status, "round_no": self.round_no, "ranked": self.ranked,
             "players": [self._pview(p) for p in self.players],
             "you": pid, "server_time": time.time(),
@@ -985,21 +1065,21 @@ class Room:
         owner = self.get(self.owner)
         return {"code": self.code, "name": self.name, "players": len(self.players), "max_players": self.max_players,
                 "status": self.status, "has_password": bool(self.pw_hash), "allow_bots": self.allow_bots,
-                "target_score": self.target_score, "owner_name": owner.name if owner else ""}
+                "target_score": self.target_score, "owner_name": owner.name if owner else "", "mode": self.mode}
 
     # ---- сериализация ------------------------------------------------------
     def to_dict(self) -> dict:
         d = {k: getattr(self, k) for k in PERSIST_FIELDS}
         d.update({"code": self.code, "name": self.name, "owner": self.owner, "max_players": self.max_players,
                   "public": self.public, "allow_bots": self.allow_bots, "target_score": self.target_score,
-                  "stacking": self.stacking, "turn_time": self.turn_time,
+                  "stacking": self.stacking, "turn_time": self.turn_time, "mode": self.mode,
                   "players": [p.to_dict() for p in self.players], "banned": sorted(self.banned)})
         return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "Room":
         r = cls(d["code"], d["name"], d["owner"], d["max_players"], d["public"], d["allow_bots"],
-                d["target_score"], d["stacking"], d["turn_time"])
+                d["target_score"], d["stacking"], d["turn_time"], d.get("mode", "classic"))
         for k in PERSIST_FIELDS:
             if k in d:
                 setattr(r, k, d[k])
@@ -1211,6 +1291,9 @@ async def h_create_room(conn: Conn, msg: dict) -> None:
     stacking = get_bool(msg, "stacking", False)
     turn_time = get_int(msg, "turn_time", 45, 20, 60)
     difficulty = get_str(msg, "difficulty", 12, "normal")
+    mode = get_str(msg, "mode", 12, "classic")
+    if mode not in MODES:
+        raise GameError("bad_request", "Недопустимый режим игры")
     if target not in TARGETS and target != 1000000:
         raise GameError("bad_request", "Недопустимое количество очков для победы")
     if turn_time not in TURN_TIMES:
@@ -1224,7 +1307,7 @@ async def h_create_room(conn: Conn, msg: dict) -> None:
         bot_count = get_int(msg, "bot_count", 2, 1, 3)
         max_players, public, allow_bots, password = bot_count + 1, False, True, ""
     code = new_code()
-    room = Room(code, name or f"Комната {code}", pid, max_players, public, allow_bots, target, stacking, turn_time)
+    room = Room(code, name or f"Комната {code}", pid, max_players, public, allow_bots, target, stacking, turn_time, mode)
     if password:
         room.set_password(password)
     owner = Player(pid, conn.user["name"], conn.user.get("photo"))
