@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0b1026">
+<meta name="theme-color" content="#0d1f2d">
 <title>UNO Online</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -684,6 +684,116 @@ body.lite #splash *{animation-duration:.01ms!important;animation-delay:0s!import
 .stamp::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:3px solid var(--bc);animation:stampRing .7s ease-out .22s both}
 @keyframes stampIn{0%{transform:rotate(-14deg) scale(3);opacity:0}16%{transform:rotate(-14deg) scale(.86);opacity:1}24%{transform:rotate(-14deg) scale(1.1)}32%,78%{transform:rotate(-14deg) scale(1);opacity:1}100%{transform:rotate(-14deg) scale(1.08);opacity:0}}
 @keyframes stampRing{from{transform:scale(1);opacity:.9}to{transform:scale(2.2);opacity:0}}
+
+/* =====================================================================
+   НОВОГОДНЯЯ ТЕМА: ночное небо, снег, гирлянда, красно-зелёные акценты
+   ===================================================================== */
+:root{--bg0:#060b14;--bg1:#0c1b2e;--accent:#ffd75a}
+#app{background:
+  radial-gradient(70% 38% at 50% -6%,rgba(235,245,255,.22),transparent 70%),
+  radial-gradient(80% 46% at 100% 100%,rgba(214,40,60,.30),transparent 62%),
+  radial-gradient(70% 40% at 0% 90%,rgba(20,160,90,.28),transparent 62%),
+  linear-gradient(180deg,#16344f 0%,#0c1b2e 55%,#060b14 100%)}
+#app::before{background:radial-gradient(1.5px 1.5px at 12% 18%,rgba(255,255,255,.7),transparent),radial-gradient(1.5px 1.5px at 78% 12%,rgba(255,255,255,.6),transparent),
+  radial-gradient(1.5px 1.5px at 40% 34%,rgba(255,255,255,.5),transparent),radial-gradient(1.5px 1.5px at 90% 46%,rgba(255,255,255,.5),transparent),
+  radial-gradient(1.5px 1.5px at 22% 62%,rgba(255,255,255,.45),transparent),radial-gradient(1.5px 1.5px at 64% 78%,rgba(255,255,255,.45),transparent)}
+.snow{position:absolute;top:-12px;left:var(--x);width:var(--s);height:var(--s);border-radius:50%;background:#fff;opacity:var(--o,.7);pointer-events:none;
+  box-shadow:0 0 6px rgba(255,255,255,.7);animation:snowfall var(--d) linear var(--dl) infinite;will-change:transform}
+@keyframes snowfall{from{transform:translate3d(0,0,0)}to{transform:translate3d(var(--dx),112vh,0)}}
+.garland{position:absolute;left:0;right:0;top:var(--safe-t);height:30px;z-index:60;pointer-events:none;overflow:visible}
+.garland::before{content:"";position:absolute;left:-5%;right:-5%;top:-14px;height:28px;border-bottom:2px solid #1d5a3b;border-radius:50%}
+.garland i{position:absolute;width:9px;height:13px;margin-left:-4px;border-radius:50% 50% 50% 50%/40% 40% 60% 60%;background:var(--c);
+  box-shadow:0 0 10px var(--c),0 0 18px var(--c);animation:twinkle 1.5s ease-in-out var(--dl) infinite alternate}
+.garland i::before{content:"";position:absolute;left:2px;top:-4px;width:5px;height:5px;background:#2a2f3a;border-radius:1px}
+@keyframes twinkle{from{opacity:.45;transform:scale(.9)}to{opacity:1;transform:scale(1.08)}}
+body.lite .snow{display:none}
+body.lite .garland i{animation:none;opacity:.9}
+@media (prefers-reduced-motion:reduce){.snow{display:none}.garland i{animation:none}}
+#screen{top:calc(var(--safe-t) + 14px)}
+.btn{background:linear-gradient(180deg,#5d7488,#2c3c4d 55%,#212d3b);border-color:rgba(220,236,255,.4)}
+.btn.primary{background:linear-gradient(180deg,#ffd75a,#ffb300)}
+.btn.blue{background:linear-gradient(180deg,#2fd47c,#0f8a48);border-color:#7df0b0;box-shadow:0 4px 0 #0a5a2f,0 10px 22px rgba(31,196,106,.3),inset 0 1px 0 rgba(255,255,255,.4)}
+.btn.green{background:linear-gradient(180deg,#2fd47c,#0f8a48)}
+.btn.red{background:linear-gradient(180deg,#ff5a6a,#c0182f)}
+.icon-btn{background:linear-gradient(180deg,#5d7488,#2c3c4d)}
+.sheet,.res-card{background:linear-gradient(180deg,#27465f,#0e1c2c);border-color:rgba(220,236,255,.28)}
+.res-card{border:2px solid rgba(255,215,90,.5);box-shadow:0 0 50px rgba(255,80,90,.18),0 20px 50px rgba(0,0,0,.5)}
+.seg button{background:linear-gradient(180deg,#46607a,#27384a)}
+.seg button.on{background:linear-gradient(180deg,#ffd75a,#ffb300);color:#2a1d00}
+.toggle.on .sw{background:#1fc46a}
+.card-panel,.prow,.room-item,.stat,.lb-row,.res-row{border-color:rgba(220,236,255,.26)}
+.logo small{background:linear-gradient(90deg,#ff5a68,#fff,#2fd47c,#ffd75a);-webkit-background-clip:text;background-clip:text;color:transparent}
+.game{background:radial-gradient(60% 40% at 50% 46%,rgba(31,196,106,.16),transparent 70%)}
+.table::before{background:radial-gradient(circle,rgba(31,196,106,.22),rgba(214,40,60,.10) 55%,transparent 70%)}
+.table::after{border:2px dashed rgba(255,255,255,.28)}
+.topbar .rn{color:#ffe9a8}
+.hand .card.playable{box-shadow:0 0 0 2px #ffd75a,0 0 16px rgba(255,215,90,.75),0 6px 12px rgba(0,0,0,.5)}
+.card.back::before{background:linear-gradient(145deg,#e0243a,#8e0f22 70%)}
+.card.back{background:radial-gradient(circle at 50% 30%,#2f6b4a,#0b1c14)}
+.mini{background:linear-gradient(145deg,#2f6b4a,#0b1c14);box-shadow:inset 0 0 0 2px #e0243a}
+.unobtn{background:linear-gradient(180deg,#ff5a6a,#c0182f)!important}
+
+/* игроки расположены вокруг стола (до 8 человек) */
+.table>.opps{position:absolute;inset:0;z-index:3;display:block;min-height:0;padding:0;margin:0;overflow:visible;pointer-events:none;gap:0}
+.table>.opps .opp{position:absolute;left:var(--lx);top:var(--ly);transform:translate(-50%,-50%);width:84px;max-width:none;flex:none;
+  display:flex;flex-direction:column;align-items:center;justify-items:unset;column-gap:0;padding:0;pointer-events:auto}
+.table>.opps .opp .ring{grid-row:auto}
+.table>.opps .opp .minis{display:none}
+.table>.opps .opp .meta{gap:4px}
+.table>.opps.many .opp{width:60px}
+.table>.opps.many .opp .nm{display:none}
+.table>.opps.many .opp .avatar{width:34px!important;height:34px!important;font-size:14px!important}
+.table>.opps .opp .tag{top:-6px;right:-4px}
+.table>.opps .opp .catch-btn{position:absolute;bottom:-14px;left:50%;transform:translateX(-50%);white-space:nowrap;grid-column:auto;margin:0}
+@media (orientation:landscape){
+  .game{grid-template-columns:minmax(0,1fr) clamp(128px,21%,190px);grid-template-areas:"top top" "table side" "hand hand"}
+  .table>.opps .opp .avatar{width:36px!important;height:36px!important;font-size:15px!important}
+}
+
+/* =====================================================================
+   КАСТОМИЗАЦИЯ ПРОФИЛЯ: рамки аватарок и баннеры, магазин Ucoin
+   ===================================================================== */
+.afr{position:relative;display:inline-flex;flex:none;border-radius:50%;padding:var(--fp,4px);isolation:isolate}
+.afr::before{content:"";position:absolute;inset:0;border-radius:50%;z-index:-1}
+.afr>.avatar{border-width:1px}
+.fr-f_snow::before{background:linear-gradient(135deg,#fff,#9cc9ff 60%,#fff);box-shadow:0 0 10px rgba(190,225,255,.8)}
+.fr-f_green::before{background:linear-gradient(135deg,#6df0a8,#0b6b36 60%,#2fd47c);box-shadow:0 0 8px rgba(47,212,124,.6)}
+.fr-f_gold::before{background:conic-gradient(from 30deg,#fff3b0,#f5b400,#a86a00,#ffe27a,#f5b400,#fff3b0);box-shadow:0 0 12px rgba(255,200,40,.7)}
+.fr-f_ice::before{background:conic-gradient(#e8fbff,#5ad1ff,#1f7bd8,#bfefff,#5ad1ff,#e8fbff);box-shadow:0 0 12px rgba(90,209,255,.8);animation:frPulse 1.8s ease-in-out infinite alternate}
+.fr-f_neon::before{inset:-1px;background:conic-gradient(#ff3d4f,#ffc72e,#1fc46a,#2f7bff,#c13dff,#ff3d4f);animation:specRot 3s linear infinite;box-shadow:0 0 14px rgba(255,255,255,.35)}
+.fr-f_fire::before{background:conic-gradient(#ffe27a,#ff8a00,#e0243a,#ff8a00,#ffe27a);box-shadow:0 0 14px rgba(255,100,20,.85);animation:frFlick .7s ease-in-out infinite alternate}
+.fr-f_santa::before{background:repeating-conic-gradient(#e0243a 0 20deg,#fff 20deg 40deg);box-shadow:0 0 10px rgba(255,60,80,.6)}
+.fr-f_santa::after{content:"🎅";position:absolute;top:calc(var(--sz)*-.28);right:calc(var(--sz)*-.18);font-size:calc(var(--sz)*.5);line-height:1;transform:rotate(16deg);filter:drop-shadow(0 2px 2px rgba(0,0,0,.5));z-index:2}
+.fr-f_royal::before{background:conic-gradient(from 10deg,#fff3b0,#ffcf3a,#b87800,#ffe9a0,#ffcf3a,#fff3b0);box-shadow:0 0 16px rgba(255,210,60,.9)}
+.fr-f_royal::after{content:"👑";position:absolute;left:50%;top:calc(var(--sz)*-.36);font-size:calc(var(--sz)*.48);line-height:1;transform:translateX(-50%);filter:drop-shadow(0 2px 2px rgba(0,0,0,.5));z-index:2}
+@keyframes frPulse{to{filter:brightness(1.35)}}
+@keyframes frFlick{from{filter:brightness(.9)}to{filter:brightness(1.3) saturate(1.2)}}
+body.lite .afr::before{animation:none!important}
+
+.bn{position:relative;text-shadow:0 1px 3px rgba(0,0,0,.65)}
+.bn .muted{color:#e3e9ff}
+.bn.bn-b_blue{background:linear-gradient(135deg,#1e4fd8,#0b1f66)!important}
+.bn.bn-b_green{background:linear-gradient(135deg,#1a9a5a,#0a3d2a)!important}
+.bn.bn-b_candy{background:linear-gradient(rgba(0,0,0,.42),rgba(0,0,0,.42)),repeating-linear-gradient(45deg,#e0243a 0 12px,#fff 12px 24px)!important}
+.bn.bn-b_sunset{background:linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.25)),linear-gradient(120deg,#ff5f6d,#ffc371 55%,#8e44ad)!important}
+.bn.bn-b_aurora{background:linear-gradient(120deg,#0f2027,#1fc46a,#2f7bff,#8e44ad,#0f2027)!important;background-size:300% 100%!important;animation:bnMove 8s linear infinite}
+@keyframes bnMove{to{background-position:-300% 0}}
+.bn.bn-b_ny{background:radial-gradient(2px 2px at 10% 25%,#fff,transparent),radial-gradient(2px 2px at 32% 70%,#fff,transparent),radial-gradient(2px 2px at 58% 30%,#fff,transparent),radial-gradient(2px 2px at 80% 65%,#fff,transparent),linear-gradient(135deg,#0b3d2a,#7a0f1f)!important}
+.bn.bn-b_ny::after{content:"🎄";position:absolute;right:10px;top:50%;translate:0 -50%;font-size:26px;opacity:.9;pointer-events:none}
+.bn.bn-b_gold{background:linear-gradient(135deg,#5a3d00,#c78a00 50%,#4a3200)!important}
+.bn.bn-b_cosmos{background:radial-gradient(1.5px 1.5px at 15% 30%,#fff,transparent),radial-gradient(1.5px 1.5px at 45% 75%,#fff,transparent),radial-gradient(1.5px 1.5px at 70% 25%,#cfe,transparent),radial-gradient(1.5px 1.5px at 88% 60%,#fff,transparent),radial-gradient(80% 120% at 80% 0%,#5b2a9a,transparent),#0a0620!important}
+.bn.bn-b_fire{background:linear-gradient(120deg,#5a0a0a,#e0431a 60%,#ffb300)!important}
+body.lite .bn.bn-b_aurora{animation:none}
+
+.coin-chip{font-size:12px;font-weight:800;color:#ffd75a;white-space:nowrap}
+.coins-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:rgba(0,0,0,.35);border:1px solid rgba(255,215,90,.5);font-weight:800;color:#ffd75a}
+.shop-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px;border-radius:16px;background:linear-gradient(160deg,rgba(255,255,255,.12),rgba(255,255,255,.04));border:2px solid rgba(220,236,255,.2);text-align:center}
+.tile.on{border-color:#ffd75a;box-shadow:0 0 16px rgba(255,215,90,.35)}
+.tile .sample{width:100%;min-height:58px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;padding:6px;background:rgba(0,0,0,.25)}
+.tile .tname{font-size:13px;font-weight:700}
+.tile .btn{width:100%}
+@media (orientation:landscape){.shop-grid{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
 <body>
@@ -753,6 +863,23 @@ function h(tag, props, ...kids) {
   return e;
 }
 const now = () => Date.now() / 1000 + S.offset;
+const bnCls = u => (u && u.banner ? ' bn bn-' + u.banner : '');
+/* Награды Ucoin за место (копия серверной таблицы: показ в офлайн-партиях). С 6-го места — ничего. */
+const L_REWARDS = { 2: [500, 100], 3: [500, 250, 100], 4: [500, 250, 100, 50], 5: [500, 250, 100, 50, 25] };
+function rewardFor(place, n) { const t = L_REWARDS[Math.max(2, Math.min(n, 5))]; return place >= 1 && place <= t.length ? t[place - 1] : 0; }
+const CLAIMS_KEY = 'uno_pending_claims_v1';
+function claimOffline(place, n) {
+  if (!rewardFor(place, n)) return;
+  if (S.authed && Net.sendRaw({ type: 'claim_offline', place, players: n })) return;
+  try { const a = JSON.parse(localStorage.getItem(CLAIMS_KEY) || '[]'); a.push({ place, n }); localStorage.setItem(CLAIMS_KEY, JSON.stringify(a.slice(-20))); } catch (e) {}
+}
+function flushClaims() {
+  try {
+    const a = JSON.parse(localStorage.getItem(CLAIMS_KEY) || '[]'); if (!a.length) return;
+    localStorage.removeItem(CLAIMS_KEY);
+    a.forEach((c, i) => setTimeout(() => Net.sendRaw({ type: 'claim_offline', place: c.place, players: c.n }), 500 * i));
+  } catch (e) {}
+}
 
 /* ========================= настройки на устройстве ========================= */
 const Settings = {
@@ -851,7 +978,7 @@ const ui = { busy: false, selected: null, prevHand: null, dealAnim: false, pileH
 /* ===== LOCAL ENGINE BEGIN ===== */
 /* Офлайн-движок: те же правила, что и в server.py, но целиком на устройстве. Без DOM. */
 class LErr extends Error { constructor(code, message) { super(message); this.code = code; this.message = message; } }
-const L_BOT_NAMES = ['Бот Макс', 'Бот Лина', 'Бот Артём', 'Бот Зоя'];
+const L_BOT_NAMES = ['Бот Макс', 'Бот Лина', 'Бот Артём', 'Бот Зоя', 'Бот Тимур', 'Бот Ника', 'Бот Рома', 'Бот Эля'];
 const L_UNO_RATE = { easy: .6, normal: .85, hard: .98 };
 const L_CATCH_RATE = { easy: .2, normal: .5, hard: .85 };
 const L_UNO_WINDOW = 4, L_HAND = 7;
@@ -875,7 +1002,7 @@ class LocalGame {
   constructor(o) {
     this.target = o.target_score; this.turnTime = o.turn_time || 0; this.stacking = o.stacking !== false;
     this.mode = o.mode === 'knockout' ? 'knockout' : 'classic'; this.placements = []; this.series = 0;
-    this.players = [{ id: 'me', name: o.name, photo: o.photo || null, bot: false, difficulty: null, hand: [], uno_called: false }];
+    this.players = [{ id: 'me', name: o.name, photo: o.photo || null, frame: o.frame || '', banner: o.banner || '', bot: false, difficulty: null, hand: [], uno_called: false }];
     for (let i = 0; i < o.bot_count; i++) this.players.push({ id: 'bot' + i, name: L_BOT_NAMES[i], photo: null, bot: true, difficulty: o.difficulty, hand: [], uno_called: false });
     this.scores = {}; this.players.forEach(p => { this.scores[p.id] = 0; });
     this.round_no = 0; this.status = 'playing'; this.events = []; this.seq = 0;
@@ -1045,8 +1172,7 @@ class LocalGame {
   callUno(pid) {
     const p = this.get(pid);
     if (!p || this.status !== 'playing') throw new LErr('uno_not_allowed', 'Сейчас нельзя объявить UNO');
-    const n = p.hand.length, isTurn = this.cur().id === pid;
-    if (!(n === 1 || (n === 2 && isTurn))) throw new LErr('uno_not_allowed', 'UNO можно объявить, когда осталась одна карта (или две — перед ходом)');
+    if (p.hand.length !== 1) throw new LErr('uno_not_allowed', 'UNO можно объявить, только когда осталась одна карта — после того как вы выбросили предпоследнюю');
     p.uno_called = true;
     if (this.uno && this.uno.pid === pid) this.uno = null;
     this.ev('uno', { pid });
@@ -1097,7 +1223,7 @@ class LocalGame {
     return best[Math.floor(Math.random() * best.length)];
   }
 
-  finishPlayer(p) { this.placements.push({ id: p.id, name: p.name, photo: p.photo, bot: p.bot }); this.ev('place', { pid: p.id, place: this.placements.length }); }
+  finishPlayer(p) { this.placements.push({ id: p.id, name: p.name, photo: p.photo, frame: p.frame || '', banner: p.banner || '', bot: p.bot }); this.ev('place', { pid: p.id, place: this.placements.length }); }
   endKnockout(now) {
     for (const x of this.active()) this.finishPlayer(x);
     this.status = 'match_over'; this.deadline = null; this.botAt = null; this.uno = null; this.drawn = null; this.pending = 0; this.pendingKind = null;
@@ -1105,8 +1231,10 @@ class LocalGame {
     this.result = {
       mode: 'knockout', winner: first.id, winner_name: first.name, points: 0, match_over: true, match_winner: first.id, target: 0,
       places: this.placements.map((e, i) => ({ ...e, place: i + 1 })),
-      players: this.players.map(x => ({ id: x.id, name: x.name, photo: x.photo, bot: x.bot, cards: x.hand.length, hand_points: lHandPoints(x.hand), score: 0 })),
+      players: this.players.map(x => ({ id: x.id, name: x.name, photo: x.photo, frame: x.frame || '', banner: x.banner || '', bot: x.bot, cards: x.hand.length, hand_points: lHandPoints(x.hand), score: 0 })),
     };
+    const nP = this.players.length, pm = this.placeOf('me');
+    this.result.rewards = { me: { place: pm, coins: rewardFor(pm, nP) } }; this.claim = { place: pm, n: nP };
     this.ev('round_end', { winner: first.id, points: 0, match_over: true });
   }
   endRound(winner, now) {
@@ -1117,8 +1245,11 @@ class LocalGame {
     this.deadline = null; this.botAt = null; this.uno = null; this.drawn = null; this.pending = 0; this.pendingKind = null;
     this.result = {
       winner: winner.id, winner_name: winner.name, points: pts, match_over: over, match_winner: over ? winner.id : null, target: this.target,
-      players: this.players.map(x => ({ id: x.id, name: x.name, photo: x.photo, bot: x.bot, cards: x.hand.length, hand_points: lHandPoints(x.hand), score: this.scores[x.id] })),
+      players: this.players.map(x => ({ id: x.id, name: x.name, photo: x.photo, frame: x.frame || '', banner: x.banner || '', bot: x.bot, cards: x.hand.length, hand_points: lHandPoints(x.hand), score: this.scores[x.id] })),
     };
+    const others = this.players.filter(x => x !== winner).map(x => lHandPoints(x.hand)).sort((a, b) => a - b);
+    const myPl = winner.id === 'me' ? 1 : 2 + others.indexOf(lHandPoints(this.get('me').hand));
+    this.result.rewards = { me: { place: myPl, coins: rewardFor(myPl, this.players.length) } }; this.claim = { place: myPl, n: this.players.length };
     this.ev('round_end', { winner: winner.id, points: pts, match_over: over });
   }
 
@@ -1144,7 +1275,7 @@ class LocalGame {
     return {
       code: 'OFFLINE', offline: true, mode: this.mode, name: 'Игра против ботов', owner: me, public: false, has_password: false, max_players: this.players.length,
       allow_bots: true, target_score: this.target, stacking: this.stacking, turn_time: this.turnTime, status: this.status, round_no: this.round_no, ranked: false,
-      players: this.players.map(p => ({ id: p.id, name: p.name, photo: p.photo, bot: p.bot, difficulty: p.difficulty, connected: true, auto: false, cards: p.hand.length, score: this.scores[p.id], uno: !!(p.uno_called && p.hand.length === 1), owner: p.id === me, place: this.placeOf(p.id) })),
+      players: this.players.map(p => ({ id: p.id, name: p.name, photo: p.photo, frame: p.frame || '', banner: p.banner || '', bot: p.bot, difficulty: p.difficulty, connected: true, auto: false, cards: p.hand.length, score: this.scores[p.id], uno: !!(p.uno_called && p.hand.length === 1), owner: p.id === me, place: this.placeOf(p.id) })),
       you: me, server_time: now, events: this.events.slice(),
       game: {
         top: this.discard[this.discard.length - 1], color: this.color, direction: this.direction, turn: playing ? this.cur().id : null, deck: this.deck.length,
@@ -1164,14 +1295,14 @@ const Local = {
     this.stop();
     const tu = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
     const name = (S.user && S.user.name) || (tu && tu.first_name) || 'Вы';
-    this.g = new LocalGame({ ...opts, name, photo: S.user && S.user.photo });
+    this.g = new LocalGame({ ...opts, name, photo: S.user && S.user.photo, frame: S.profile && S.profile.frame, banner: S.profile && S.profile.banner });
     this.active = true; S.lastRoom = null; S.room = null;
     this.g.startSeries(Date.now() / 1000);
     this.commit();
     this.timer = setInterval(() => this.tick(), 300);
   },
   stop() { clearInterval(this.timer); this.timer = null; this.active = false; this.g = null; },
-  commit() { const v = this.g.view(Date.now() / 1000); this.g.events = []; applyRoom(v, true); },
+  commit() { const v = this.g.view(Date.now() / 1000); this.g.events = []; const c = this.g.claim; this.g.claim = null; applyRoom(v, true); if (c) claimOffline(c.place, c.n); },
   tick() { if (this.g && this.g.tick(Date.now() / 1000)) this.commit(); },
   exit() {
     this.stop(); S.room = null; S.lastRoom = null; ui.selected = null; closeSheet();
@@ -1306,7 +1437,7 @@ function handleMsg(m) {
 
 function onAuth(m) {
   Net.attempt = 0; Net.everAuthed = true; S.authed = true; hideConn();
-  S.user = m.user; S.profile = m.profile; S.config = m.config || {};
+  S.user = m.user; S.profile = m.profile; S.config = m.config || {}; setTimeout(flushClaims, 800);
   S.offset = m.server_time - Date.now() / 1000;
   if (Local.active) return; // идёт офлайн-партия: онлайн-состояние подтянется после выхода в меню
   if (m.room) { S.screen = 'menu'; applyRoom(m.room, false); }
@@ -1432,6 +1563,16 @@ function initBg() {
     const w = 30 + Math.random() * 30, c = UNO_COL[i % 4];
     app.prepend(h('div', { class: 'bgc', style: `left:${Math.random() * 94}%;width:${w}px;height:${w * 1.5}px;background:linear-gradient(150deg,${c},rgba(0,0,0,.4));--r0:${Math.random() * 120 - 60}deg;animation-duration:${20 + Math.random() * 22}s;animation-delay:-${Math.random() * 30}s` }));
   }
+  // новогодний декор: снегопад и гирлянда
+  for (let i = 0; i < 28; i++) {
+    app.prepend(h('i', { class: 'snow', style: `--x:${Math.random() * 100}%;--s:${2 + Math.random() * 4}px;--d:${9 + Math.random() * 10}s;--dl:-${Math.random() * 16}s;--dx:${Math.random() * 90 - 45}px;--o:${0.45 + Math.random() * 0.5}` }));
+  }
+  const g = h('div', { class: 'garland' }), GC = ['#ff3d4f', '#ffc72e', '#1fc46a', '#4a90ff'];
+  for (let i = 0; i < 15; i++) {
+    const x = 3 + i * 6.4, t = (x - 50) / 55, y = 14 * Math.sqrt(Math.max(0, 1 - t * t));
+    g.append(h('i', { style: `left:${x}%;top:${y.toFixed(1)}px;--c:${GC[i % 4]};--dl:${(i * 0.23).toFixed(2)}s` }));
+  }
+  app.append(g);
 }
 function confetti(n) {
   if (Settings.lite) return;
@@ -1495,7 +1636,9 @@ function runEffects(evs, from) {
       case 'owner': toast(nameOf(e.pid) + ' теперь владелец комнаты'); break;
       case 'round_end': {
         const won = e.winner === R.you;
-        Snd.play(won ? 'win' : 'lose'); vib(won ? 'ok' : 'error'); if (won) confetti(90); break;
+        Snd.play(won ? 'win' : 'lose'); vib(won ? 'ok' : 'error'); if (won) confetti(90);
+        const rw = R.game && R.game.result && R.game.result.rewards && R.game.result.rewards[R.you]; if (rw && rw.coins) setTimeout(() => toast('🪙 +' + rw.coins + ' Ucoin', 'ok'), 900);
+        break;
       }
     }
   }
@@ -1544,6 +1687,11 @@ function hueGrad(id) {
   return `linear-gradient(135deg,hsl(${hu} 70% 52%),hsl(${(hu + 40) % 360} 70% 32%))`;
 }
 function avatar(u, size = 44) {
+  const a = avatarBase(u, size);
+  if (!u.frame) return a;
+  return h('div', { class: 'afr fr-' + u.frame, style: `--fp:${Math.max(2.5, size * .085).toFixed(1)}px;--sz:${size}px` }, a);
+}
+function avatarBase(u, size = 44) {
   const w = h('div', { class: 'avatar', style: `width:${size}px;height:${size}px;font-size:${Math.round(size * .42)}px;background:${hueGrad(u.id || u.name)}` });
   if (u.bot) { w.textContent = '🤖'; return w; }
   w.textContent = (Array.from((u.name || '?').trim())[0] || '?').toUpperCase();
@@ -1588,6 +1736,7 @@ function render() {
   if (S.screen === 'loading') return paint(h('div', { class: 'center-col' }, h('div', { class: 'logo-row', style: 'transform:none' }, h('span', { style: 'width:44px;height:60px;font-size:30px' }, 'U'), h('span', { style: 'width:44px;height:60px;font-size:30px' }, 'N'), h('span', { style: 'width:44px;height:60px;font-size:30px' }, 'O')), h('div', { class: 'spinner' }), h('div', { class: 'muted' }, S.loadingMsg), h('button', { class: 'btn small', onClick: () => { S.abortBoot = true; S.offlineNote = 'Подключение пропущено. Офлайн-режим работает.'; S.screen = 'menu'; render(); } }, '🤖 Играть офлайн')));
   if (S.screen === 'error') return paint(h('div', { class: 'center-col' }, h('div', { class: 'big-emoji' }, S.errorEmoji), h('div', { class: 'title' }, 'Не получилось'), h('div', { class: 'muted', style: 'line-height:1.45' }, S.errorMsg), S.retry ? h('button', { class: 'btn primary', onClick: S.retry }, '🔄 Повторить') : null, h('button', { class: 'btn', onClick: () => { S.screen = 'menu'; render(); } }, '🤖 Играть офлайн')));
   if (S.room) return paint(S.room.status === 'lobby' ? lobbyView() : gameView());
+  if (S.screen === 'shop') return paint(shopView());
   if (S.screen === 'stats') return paint(statsView());
   if (S.screen === 'settings') return paint(settingsView());
   paint(menuView()); maybeTutorial();
@@ -1608,9 +1757,9 @@ function menuView() {
     h('div', { class: 'menu-left' },
       fgCoin(),
       h('div', { class: 'logo' }, h('div', { class: 'logo-row' }, h('span', null, 'U'), h('span', null, 'N'), h('span', null, 'O')), h('small', null, 'ONLINE')),
-      h('div', { class: 'card-panel profile' }, avatar(u, 56),
+      h('div', { class: 'card-panel profile' + bnCls(p) }, avatar({ ...u, frame: p.frame }, 56),
         h('div', { class: 'grow' }, h('div', { class: 'nm' }, u.name),
-          h('div', { class: 'muted', style: 'font-size:13px;margin-top:2px' }, on ? `🏆 Побед: ${p.wins || 0} · 🎮 Матчей: ${(p.wins || 0) + (p.losses || 0)}` : '📴 Нет связи с сервером'))),
+          h('div', { class: 'muted', style: 'font-size:13px;margin-top:2px' }, on ? `🪙 ${p.coins || 0} Ucoin · 🏆 Побед: ${p.wins || 0}` : '📴 Нет связи с сервером'))),
       on ? null : h('div', { class: 'muted offline-note' }, S.offlineNote || 'Онлайн-режимы недоступны.', ' ',
         h('button', { class: 'btn small', style: 'margin-top:8px', onClick: () => { Net.stopped = false; Net.attempt = 0; clearTimeout(Net.retryTimer); boot(); } }, '🔄 Подключиться'))),
     h('div', { class: 'menu-btns' },
@@ -1620,6 +1769,7 @@ function menuView() {
       h('button', { class: 'btn', onClick: () => { Snd.play('click'); openRules(); } }, '📖 Как играть'),
       h('div', { class: 'row' },
         h('button', { class: 'btn small grow', onClick: () => (on ? go('stats') : needNet()) }, '🏆 Статистика'),
+        h('button', { class: 'btn small grow', onClick: () => (on ? go('shop') : needNet()) }, '🎨 Стиль'),
         h('button', { class: 'btn small grow', onClick: () => go('settings') }, '⚙️ Настройки'))));
 }
 /* ----- монетка FG ----- */
@@ -1646,7 +1796,7 @@ function openOffline() {
   openSheet('Игра против ботов', [
     h('div', { class: 'muted', style: 'font-size:13px;line-height:1.4' }, 'Работает без интернета и без сервера. Результаты в статистику не записываются.'),
     h('div', { class: 'field' }, h('label', null, 'Режим игры'), seg([['classic', 'Классика'], ['knockout', 'Выбивание']], 'classic', v => { f.mode = v; hint.textContent = MODE_HINT[v]; }), hint),
-    h('div', { class: 'field' }, h('label', null, 'Соперники-боты'), seg([[1, '1'], [2, '2'], [3, '3']], 3, v => { f.bot_count = v; })),
+    h('div', { class: 'field' }, h('label', null, 'Соперники-боты'), seg([[1, '1'], [2, '2'], [3, '3'], [5, '5'], [7, '7']], 3, v => { f.bot_count = v; })),
     h('div', { class: 'field' }, h('label', null, 'Сложность'), seg([['easy', 'Лёгкий'], ['normal', 'Средний'], ['hard', 'Сильный']], 'normal', v => { f.difficulty = v; })),
     h('div', { class: 'field' }, h('label', null, 'Время на ход, сек'), seg([[0, '∞'], [30, '30'], [45, '45'], [60, '60']], 0, v => { f.turn_time = v; })),
     toggle('Наложение штрафов', '«+2» и «+4» суммируются и идут дальше', true, v => { f.stacking = v; }),
@@ -1662,7 +1812,7 @@ function openCreate(quick) {
   const body = [
     h('div', { class: 'field' }, h('label', null, 'Название комнаты'), h('input', { type: 'text', maxlength: '24', placeholder: 'Например, «Вечерний UNO»', onInput: e => { f.name = e.target.value; } })),
     h('div', { class: 'field' }, h('label', null, 'Режим игры'), seg([['classic', 'Классика'], ['knockout', 'Выбивание']], 'classic', v => { f.mode = v; hint.textContent = MODE_HINT[v]; }), hint),
-    h('div', { class: 'field' }, h('label', null, 'Количество игроков'), seg([[2, '2'], [3, '3'], [4, '4']], 4, v => { f.max_players = v; })),
+    h('div', { class: 'field' }, h('label', null, 'Количество игроков'), seg([[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6'], [7, '7'], [8, '8']], 4, v => { f.max_players = v; })),
     h('div', { class: 'field' }, h('label', null, 'Доступ'), seg([[true, '🌐 Публичная'], [false, '🔒 Приватная']], true, v => { f.public = v; pw.hidden = v; })),
     pw,
     h('div', { class: 'field' }, h('label', null, 'Время на ход, сек'), seg([[20, '20'], [30, '30'], [45, '45'], [60, '60']], 45, v => { f.turn_time = v; })),
@@ -1708,13 +1858,57 @@ function statsView() {
   return h('div', { class: 'screen' },
     h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'icon-btn', onClick: () => go('menu') }, '←'), h('div', { class: 'title grow' }, '🏆 Статистика')),
     h('div', { class: 'scroll stack' },
-      h('div', { class: 'card-panel profile', style: 'margin:0' }, avatar(u, 56), h('div', { class: 'grow' }, h('div', { class: 'nm' }, u.name))),
+      h('div', { class: 'card-panel profile' + bnCls(p), style: 'margin:0' }, avatar({ ...u, frame: p.frame }, 56), h('div', { class: 'grow' }, h('div', { class: 'nm' }, u.name))),
       h('div', { class: 'stat-grid' }, st(p.wins || 0, 'Побед'), st(p.losses || 0, 'Поражений'), st((p.win_rate || 0) + '%', 'Процент побед'), st(p.rounds || 0, 'Раундов сыграно'),
         st(p.streak || 0, 'Серия побед'), st(p.best_streak || 0, 'Лучшая серия'), st(p.best_score || 0, 'Лучший результат'), st(p.points || 0, 'Всего очков')),
       h('h3', null, 'Таблица лидеров'),
       lb.length ? lb.map(r => h('div', { class: 'lb-row' + (r.you ? ' you' : '') }, h('div', { class: 'rk' }, r.rank), avatar({ id: r.name + r.rank, name: r.name, photo: r.photo }, 34),
         h('div', { class: 'grow', style: 'font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, r.name), h('div', { style: 'text-align:right;font-size:13px' }, h('b', null, r.wins + ' поб.'), h('div', { class: 'muted', style: 'font-size:11px' }, r.points + ' очк.'))))
         : h('div', { class: 'muted', style: 'text-align:center;padding:16px' }, 'Пока никто не сыграл матч')));
+}
+
+/* ----- кастомизация профиля (баннеры и рамки) ----- */
+function profUser() {
+  const p = S.profile || {}, tu = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  const u = S.user || { id: 'guest', name: (tu && tu.first_name) || 'Гость' };
+  return { ...u, frame: p.frame || '', banner: p.banner || '' };
+}
+async function doEquip(kind, item) { Snd.play('click'); await act('equip_item', { kind, item }); }
+function doBuy(it) {
+  const coins = (S.profile && S.profile.coins) || 0;
+  if (coins < it.price) { toast(`Не хватает ${it.price - coins} Ucoin — играйте и зарабатывайте`, 'err'); Snd.play('error'); return; }
+  confirmDialog(`Купить «${it.name}» за ${it.price} Ucoin?`, 'Купить', async () => {
+    const r = await act('buy_item', { item: it.id });
+    if (r.ok) { toast('Куплено!', 'ok'); Snd.play('win'); vib('ok'); }
+  });
+}
+function shopView() {
+  const p = S.profile || {}, cat = (S.config && S.config.catalog) || [], tab = S.shopTab || 'banner';
+  const owned = new Set(p.owned || []), u = profUser(), eq = p[tab] || '', coins = p.coins || 0;
+  const items = [{ id: '', kind: tab, name: tab === 'banner' ? 'Без баннера' : 'Без рамки', price: 0 }, ...cat.filter(i => i.kind === tab)];
+  const tile = it => {
+    const have = !it.id || it.price === 0 || owned.has(it.id), on = eq === it.id;
+    const sample = tab === 'banner'
+      ? h('div', { class: 'sample' + (it.id ? ' bn bn-' + it.id : '') }, it.name)
+      : h('div', { class: 'sample' }, avatar({ ...u, frame: it.id, banner: '' }, 46));
+    const btn = on ? h('button', { class: 'btn small', disabled: true }, '✓ Надето')
+      : have ? h('button', { class: 'btn small blue', onClick: () => doEquip(tab, it.id) }, 'Надеть')
+      : h('button', { class: 'btn small primary' + (coins >= it.price ? '' : ' dim'), onClick: () => doBuy(it) }, '🪙 ' + it.price);
+    return h('div', { class: 'tile' + (on ? ' on' : '') }, sample,
+      tab === 'frame' && it.id ? h('div', { class: 'tname' }, it.name) : null,
+      it.id ? h('div', { class: 'muted', style: 'font-size:11px' }, it.price === 0 ? 'Бесплатно' : (have ? 'Куплено' : 'Платный')) : null, btn);
+  };
+  const sc = h('div', { class: 'scroll stack' },
+    h('div', { class: 'card-panel profile' + bnCls(u), style: 'margin:0' }, avatar(u, 60),
+      h('div', { class: 'grow' }, h('div', { class: 'nm' }, u.name), h('div', { style: 'margin-top:6px' }, h('span', { class: 'coins-badge' }, '🪙 ' + coins + ' Ucoin')))),
+    h('div', { class: 'muted', style: 'font-size:12px;line-height:1.45' }, 'Ucoin даются за места в играх: 1-е — 500, 2-е — 250, 3-е — 100, 4-е — 50, 5-е — 25. С 6-го места награды нет. Играйте с ботами и онлайн.'),
+    seg([['banner', '🖼 Баннеры'], ['frame', '⭕ Рамки']], tab, v => { S.shopTab = v; S.shopScroll = 0; render(); }),
+    h('div', { class: 'shop-grid' }, items.map(tile)));
+  sc.addEventListener('scroll', () => { S.shopScroll = sc.scrollTop; });
+  requestAnimationFrame(() => { sc.scrollTop = S.shopScroll || 0; });
+  return h('div', { class: 'screen' },
+    h('div', { class: 'row', style: 'margin-bottom:12px' }, h('button', { class: 'icon-btn', onClick: () => go('menu') }, '←'), h('div', { class: 'title grow' }, '🎨 Кастомизация')),
+    sc);
 }
 
 /* ----- настройки ----- */
@@ -1748,7 +1942,7 @@ function invite(R) {
 }
 function lobbyView() {
   const R = S.room, me = R.you, isOwner = R.owner === me;
-  const rows = R.players.map(p => h('div', { class: 'prow' + (p.connected ? '' : ' off') }, avatar(p, 44),
+  const rows = R.players.map(p => h('div', { class: 'prow' + (p.connected ? '' : ' off') + bnCls(p) }, avatar(p, 44),
     h('div', { class: 'grow' }, h('div', { class: 'nm' }, (p.owner ? '👑 ' : '') + p.name + (p.id === me ? ' (вы)' : '')), h('div', { class: 'sub' }, p.bot ? '🤖 Бот · ' + DIFF_NAMES[p.difficulty] : (p.connected ? 'В комнате' : 'Нет связи…'))),
     isOwner && p.id !== me ? [
       p.bot ? null : h('button', { class: 'icon-btn', title: 'Передать управление', onClick: () => confirmDialog(`Передать управление комнатой игроку ${p.name}?`, 'Передать', () => act('transfer_owner', { target: p.id })) }, '👑'),
@@ -1781,6 +1975,11 @@ function leaveRoom() {
 }
 
 /* ----- игровое поле ----- */
+function seatStyle(i, n) {
+  const th = Math.PI * (i + 1) / (n + 1);
+  const x = 50 - 36 * Math.cos(th), y = 52 - 40 * Math.sin(th);
+  return `--lx:${x.toFixed(1)}%;--ly:${y.toFixed(1)}%`;
+}
 function gameView() {
   const R = S.room, G = R.game, me = R.you;
   if (!G) return h('div', { class: 'center-col' }, h('div', { class: 'spinner' }));
@@ -1790,8 +1989,8 @@ function gameView() {
   const mePl = R.players[idx];
   const turnPl = R.players.find(p => p.id === G.turn);
 
-  const oppEls = opps.map(p => h('div', { class: 'opp' + (G.turn === p.id ? ' turn' : '') + (p.connected || p.bot ? '' : ' gone') + (p.place ? ' done' : '') },
-    h('div', { class: 'ring', 'data-ring': p.id }, avatar(p, 46)),
+  const oppEls = opps.map((p, i) => h('div', { class: 'opp' + (G.turn === p.id ? ' turn' : '') + (p.connected || p.bot ? '' : ' gone') + (p.place ? ' done' : ''), style: seatStyle(i, opps.length) },
+    h('div', { class: 'ring', 'data-ring': p.id }, avatar(p, opps.length > 4 ? 34 : 46)),
     h('div', { class: 'nm' }, p.name),
     h('div', { class: 'meta' }, h('span', { class: 'cnt' }, '🂠 ' + p.cards), R.mode === 'knockout' ? (p.place ? h('span', null, medal(p.place) + ' ' + p.place) : null) : h('span', null, '🏆' + p.score)),
     h('div', { class: 'minis' }, Array.from({ length: Math.min(p.cards, 7) }, () => h('div', { class: 'mini' }))),
@@ -1812,7 +2011,7 @@ function gameView() {
   else if (turnPl) status = 'Ходит: ' + turnPl.name;
 
   const myHand = G.hand;
-  const canUno = playing && (myHand.length === 1 || (myHand.length === 2 && myTurn));
+  const canUno = playing && myHand.length === 1;
   const unoUrgent = G.uno && G.uno.pid === me;
   if (ui.dealAnim && !Settings.lite) { ui.dealHide = new Set([...myHand.map(c => String(c.id)), 'pile']); clearTimeout(ui.dealTm); ui.dealTm = setTimeout(clearDeal, 7000); }
   const prevIds = ui.prevHand;
@@ -1836,11 +2035,11 @@ function gameView() {
       h('button', { class: 'icon-btn', onClick: openGameMenu, 'aria-label': 'Меню' }, '☰'),
       h('div', { class: 'rc' }, h('div', { class: 'rn' }, R.name), h('div', { class: 'rcode' }, `${R.offline ? 'ОФЛАЙН' : 'КОД ' + R.code} · ${R.mode === 'knockout' ? 'ВЫБИВАНИЕ' : 'РАУНД ' + R.round_no}`)),
       h('span', { class: 'fgmini', title: 'Farm Games Studio' }, 'FG')),
-    h('div', { class: 'opps' }, oppEls),
     h('div', { class: 'table' },
+      h('div', { class: 'opps' + (opps.length > 3 ? ' many' : '') }, oppEls),
       h('div', { class: 'dir' + (G.direction < 0 ? ' ccw' : '') }, '↻'),
       h('div', { class: 'deckwrap' },
-        h('div', { class: 'deck' + (G.can_draw ? ' can' : ''), onClick: drawCard }, h('div', { class: 'stackfx' }), cardEl(null, true), h('div', { class: 'n' }, G.deck + ' карт'))),
+        h('div', { class: 'deck' + (G.can_draw ? ' can' : ''), onClick: drawCard }, h('div', { class: 'stackfx' }), cardEl(null, true))),
       h('div', { class: 'pilewrap' },
         h('div', { class: 'pile', style: `--cc:${colorHex}` }, h('div', { class: 'ringc' }), pileCard),
         h('div', { class: 'cname', style: `color:${colorHex}` }, COLOR_NAMES[G.color] || ''))),
@@ -1851,7 +2050,7 @@ function gameView() {
       h('div', { class: 'actions' },
         h('button', { class: 'btn', disabled: !G.can_draw, onClick: drawCard }, G.pending && myTurn ? `📥 Взять +${G.pending}` : '📥 Взять карту'),
         G.can_pass ? h('button', { class: 'btn blue', onClick: () => act('pass_turn') }, '⏭ Пропустить') : null,
-        canUno ? h('button', { class: 'btn unobtn' + (unoUrgent || (myHand.length === 2 && myTurn) ? ' pulse' : ''), onClick: () => act('call_uno') }, 'UNO!') : null)),
+        canUno ? h('button', { class: 'btn unobtn' + (unoUrgent ? ' pulse' : ''), onClick: () => act('call_uno') }, 'UNO!') : null)),
     h('div', { class: 'hand-scroll' }, h('div', { class: 'hand' }, handEls)));
 
   if (R.status !== 'playing') root.append(resultsView(R));
@@ -1931,12 +2130,12 @@ function resultsView(R) {
   const res = R.game.result, me = R.you; if (!res) return h('div');
   if (res.places) return resultsKnockout(R, res);
   const isOwner = R.owner === me, over = res.match_over, won = res.winner === me;
-  const rows = [...res.players].sort((a, b) => (b.id === res.winner) - (a.id === res.winner) || b.score - a.score).map(p => h('div', { class: 'res-row' + (p.id === res.winner ? ' win' : '') },
+  const rows = [...res.players].sort((a, b) => (b.id === res.winner) - (a.id === res.winner) || b.score - a.score).map(p => h('div', { class: 'res-row' + (p.id === res.winner ? ' win' : '') + bnCls(p) },
     avatar(p, 38),
     h('div', { class: 'grow' }, h('div', { style: 'font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, (p.id === res.winner ? '👑 ' : '') + p.name + (p.id === me ? ' (вы)' : '')),
       h('div', { class: 'muted', style: 'font-size:12px' }, p.id === res.winner ? 'Карт не осталось' : `Осталось карт: ${p.cards} (${p.hand_points} очк.)`),
       ),
-    h('div', { style: 'text-align:right' }, p.id === res.winner ? h('div', { class: 'pts' }, '+' + res.points) : null, h('div', { style: 'font-weight:800' }, p.score))));
+    h('div', { style: 'text-align:right' }, p.id === res.winner ? h('div', { class: 'pts' }, '+' + res.points) : null, h('div', { style: 'font-weight:800' }, p.score), rwChip(res, p))));
   return h('div', { class: 'results' }, h('div', { class: 'res-card' },
     h('div', { class: 'crown' }, over ? '🏆' : (won ? '🎉' : '🃏')),
     h('div', { class: 'res-title' }, over ? `Матч выиграл ${res.winner_name}!` : (won ? 'Вы выиграли раунд!' : `Раунд выиграл ${res.winner_name}`)),
@@ -1949,13 +2148,17 @@ function resultsView(R) {
         h('button', { class: 'btn small red grow', onClick: () => act('leave_room') }, 'Выйти'))));
 }
 
+function rwChip(res, p) {
+  const rw = res.rewards && res.rewards[p.id];
+  return rw && rw.coins && !p.bot ? h('div', { class: 'coin-chip' }, '🪙 +' + rw.coins) : null;
+}
 function resultsKnockout(R, res) {
   const me = R.you, isOwner = R.owner === me, last = res.places.length;
   const my = (res.places.find(e => e.id === me) || {}).place;
-  const rows = res.places.map(e => h('div', { class: 'res-row' + (e.place === 1 ? ' win' : '') }, avatar(e, 38),
+  const rows = res.places.map(e => h('div', { class: 'res-row' + (e.place === 1 ? ' win' : '') + bnCls(e) }, avatar(e, 38),
     h('div', { class: 'grow' }, h('div', { style: 'font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, e.name + (e.id === me ? ' (вы)' : '')),
       h('div', { class: 'muted', style: 'font-size:12px' }, e.place === 1 ? 'Первым сбросил все карты' : (e.place === last ? 'Остался последним' : 'Сбросил все карты'))),
-    h('div', { style: 'text-align:right;font-weight:800;font-size:18px;white-space:nowrap' }, medal(e.place) + ' ' + e.place)));
+    h('div', { style: 'text-align:right;font-weight:800;font-size:18px;white-space:nowrap' }, medal(e.place) + ' ' + e.place, rwChip(res, e))));
   return h('div', { class: 'results' }, h('div', { class: 'res-card' },
     h('div', { class: 'crown' }, my === 1 ? '🏆' : '🎯'),
     h('div', { class: 'res-title' }, my === 1 ? 'Вы выиграли!' : (my ? `Вы заняли ${my} место` : `Победил ${res.winner_name}`)),
@@ -2054,8 +2257,9 @@ const RULES = [
   ['+2', 'Возьми две', 'Следующий игрок берёт 2 карты и пропускает ход.'],
   ['🌈', 'Смена цвета', 'Кладётся на любую карту. Вы выбираете цвет, который будет продолжать игру.'],
   ['+4', 'Смена цвета + 4', 'Вы выбираете цвет, следующий игрок берёт 4 карты и пропускает ход. Сыграть её можно, только если у вас нет ни одной карты цвета верхней карты. В настоящей игре соперник может оспорить ход как блеф; здесь это правило проверяется автоматически, поэтому блефовать нельзя.'],
-  ['📣', 'UNO!', 'Осталась одна карта — нажмите «UNO!». Если соперник заметил, что вы не сказали, и успел нажать «ПОЙМАТЬ!» до следующего хода, вы берёте штрафные карты. Официальный штраф — 2 карты, в этой игре — 6.'],
+  ['📣', 'UNO!', 'Выбросили предпоследнюю карту — теперь осталась одна, и появляется кнопка «UNO!»: нажмите её. Раньше объявить UNO нельзя. Если соперник заметил, что вы не сказали, и успел нажать «ПОЙМАТЬ!» до следующего хода, вы берёте штрафные карты. Официальный штраф — 2 карты, в этой игре — 6.'],
   ['🏆', 'Очки', 'В «Классике» победитель раунда получает очки за все карты, оставшиеся у соперников: цифры — по номиналу, «Пропуск», «Реверс», «+2» — по 20, «Смена цвета» и «+4» — по 50. Очки копятся от раунда к раунду — играйте сколько хотите. В «Выбивании» очков нет — важно только место.'],
+  ['🪙', 'Ucoin и кастомизация', 'За место в игре начисляются Ucoin: 1-е — 500, 2-е — 250, 3-е — 100, 4-е — 50, 5-е — 25; с 6-го места награды нет (в дуэли за 2-е место — 100). В «Классике» награда даётся по итогам каждого раунда, в «Выбивании» — по итогам матча. На Ucoin в разделе «Стиль» покупаются баннеры профиля и рамки аватарки — часть бесплатна. Партии против ботов без интернета тоже приносят монеты (до 3000 в сутки), они зачислятся при подключении.'],
   ['⚙️', 'Особенности этой игры', 'Штрафы суммируются: на «+2» можно положить «+2» (или «+4»), на «+4» — «+4» или «+2» выбранного цвета; общий штраф уходит дальше. Если у следующего нет подходящей карты, он берёт всё автоматически. Две одинаковые цифровые карты можно сыграть сразу. Есть таймер хода.'],
 ];
 function openRules() {
@@ -2091,7 +2295,7 @@ const TUT = [
   { t: 'Как сходить', p: 'Положите карту того же цвета или с той же цифрой. Попробуйте — какие карты подходят?', v: tutQuiz },
   { t: 'Особые карты', p: '', v: () => h('div', { class: 'stack', style: 'gap:8px' }, [['R', 'skip', 'Пропуск — следующий пропускает ход'], ['G', 'reverse', 'Реверс — меняет направление'], ['Y', 'draw2', '+2 — следующий берёт 2 карты'], ['W', 'wild', 'Смена цвета — вы выбираете цвет'], ['W', 'wild4', '+4 — следующий берёт 4; можно, только если нет карты нужного цвета']].map(([c, v, tx]) => h('div', { class: 'row' }, h('div', { style: '--cw:40px;display:flex' }, mc(c, v)), h('div', { style: 'font-size:14px;line-height:1.3' }, tx)))) },
   { t: 'Нет подходящей карты?', p: 'Нажмите на колоду и возьмите одну карту. Подходит — сыграйте сразу, нет — нажмите «Пропустить».', v: () => h('div', { class: 'tutrow' }, cardEl(null, true), h('div', { class: 'btn small' }, '⏭ Пропустить')) },
-  { t: 'Не забудьте про UNO!', p: 'Осталась одна карта — жмите «UNO!». Не успели, и вас поймали — штраф. Соперник забыл? Жмите «ПОЙМАТЬ!» у его аватара.', v: () => h('div', { class: 'tutrow' }, h('div', { class: 'btn unobtn pulse' }, 'UNO!')) },
+  { t: 'Не забудьте про UNO!', p: 'Выбросили предпоследнюю карту — жмите «UNO!» (кнопка появляется, когда осталась одна карта). Не успели, и вас поймали — штраф. Соперник забыл? Жмите «ПОЙМАТЬ!» у его аватара.', v: () => h('div', { class: 'tutrow' }, h('div', { class: 'btn unobtn pulse' }, 'UNO!')) },
   { t: 'Всё готово!', p: 'Подсвеченные карты можно сыграть, тусклые — нет. Кольцо вокруг аватара — время на ход. Хотите потренироваться с ботом?', v: () => h('div', { class: 'tutrow' }, mc('G', '3'), mc('G', 'draw2'), mc('W', 'wild')) },
 ];
 function openTutorial() {
@@ -2204,7 +2408,7 @@ document.addEventListener('keydown', e => {
 if (tg) {
   try {
     tg.ready(); tg.expand();
-    tg.setHeaderColor && tg.setHeaderColor('#0b1026'); tg.setBackgroundColor && tg.setBackgroundColor('#0b1026');
+    tg.setHeaderColor && tg.setHeaderColor('#0d1f2d'); tg.setBackgroundColor && tg.setBackgroundColor('#0d1f2d');
     tg.disableVerticalSwipes && tg.disableVerticalSwipes();
     if (tg.BackButton) tg.BackButton.onClick(() => { if ($('#sheet').firstChild) closeSheet(); else go('menu'); });
     const sp = tg.initDataUnsafe && tg.initDataUnsafe.start_param;
