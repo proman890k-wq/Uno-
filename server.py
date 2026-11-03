@@ -82,6 +82,46 @@ RATE_CAPACITY = 15.0
 RATE_REFILL = 5.0  # токенов в секунду
 
 HAND_SIZE = 7
+MAX_PLAYERS = 8  # максимум игроков в комнате
+
+# Награды Ucoin за место (по размеру лобби). С 6-го места и ниже — ничего.
+REWARD_TABLE = {2: (500, 100), 3: (500, 250, 100), 4: (500, 250, 100, 50), 5: (500, 250, 100, 50, 25)}
+OFFLINE_DAILY_CAP = int(os.getenv("OFFLINE_DAILY_CAP", "3000"))  # лимит Ucoin в сутки за офлайн-партии
+
+CATALOG = [
+    {"id": "b_blue", "kind": "banner", "name": "Ночной синий", "price": 0},
+    {"id": "b_green", "kind": "banner", "name": "Ёлочный", "price": 0},
+    {"id": "b_candy", "kind": "banner", "name": "Леденец", "price": 250},
+    {"id": "b_sunset", "kind": "banner", "name": "Закат", "price": 300},
+    {"id": "b_aurora", "kind": "banner", "name": "Северное сияние", "price": 450},
+    {"id": "b_ny", "kind": "banner", "name": "Новогодняя ночь", "price": 600},
+    {"id": "b_gold", "kind": "banner", "name": "Золото", "price": 700},
+    {"id": "b_cosmos", "kind": "banner", "name": "Космос", "price": 900},
+    {"id": "b_fire", "kind": "banner", "name": "Пламя", "price": 1200},
+    {"id": "f_snow", "kind": "frame", "name": "Снежная", "price": 0},
+    {"id": "f_green", "kind": "frame", "name": "Зелёная", "price": 0},
+    {"id": "f_gold", "kind": "frame", "name": "Золотая", "price": 300},
+    {"id": "f_ice", "kind": "frame", "name": "Ледяная", "price": 600},
+    {"id": "f_neon", "kind": "frame", "name": "Неон", "price": 800},
+    {"id": "f_fire", "kind": "frame", "name": "Огненная", "price": 1000},
+    {"id": "f_santa", "kind": "frame", "name": "Дед Мороз", "price": 1200},
+    {"id": "f_royal", "kind": "frame", "name": "Королевская", "price": 2000},
+]
+CATALOG_BY_ID = {i["id"]: i for i in CATALOG}
+
+
+def reward_for(place: int, n: int) -> int:
+    """Ucoin за место `place` в лобби из `n` игроков."""
+    table = REWARD_TABLE[max(2, min(n, 5))]
+    return table[place - 1] if 1 <= place <= len(table) else 0
+
+
+def _json_list(raw: Any) -> list:
+    try:
+        v = json.loads(raw or "[]")
+        return [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
+    except Exception:
+        return []
 UNO_PENALTY = 6  # штраф тому, кого поймали без UNO
 AFK_LIMIT = 3  # столько таймаутов подряд — игрок переводится на автопилот
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -90,7 +130,7 @@ TARGETS = (100, 200, 300, 500)
 TURN_TIMES = (20, 30, 45, 60)
 DIFFICULTIES = ("easy", "normal", "hard")
 MODES = ("classic", "knockout")
-BOT_NAMES = ["Бот Макс", "Бот Лина", "Бот Артём", "Бот Зоя", "Бот Тимур", "Бот Ника"]
+BOT_NAMES = ["Бот Макс", "Бот Лина", "Бот Артём", "Бот Зоя", "Бот Тимур", "Бот Ника", "Бот Рома", "Бот Эля"]
 BOT_UNO_RATE = {"easy": 0.6, "normal": 0.85, "hard": 0.98}
 BOT_CATCH_RATE = {"easy": 0.2, "normal": 0.5, "hard": 0.85}
 
@@ -210,6 +250,10 @@ class Database:
                     streak INTEGER NOT NULL DEFAULT 0,
                     best_streak INTEGER NOT NULL DEFAULT 0,
                     best_score INTEGER NOT NULL DEFAULT 0,
+                    coins INTEGER NOT NULL DEFAULT 0,
+                    owned TEXT NOT NULL DEFAULT '[]',
+                    banner TEXT NOT NULL DEFAULT '',
+                    frame TEXT NOT NULL DEFAULT '',
                     created_at REAL,
                     updated_at REAL
                 );
@@ -224,6 +268,12 @@ class Database:
                 );
                 """
             )
+            cols = {r[1] for r in self.conn.execute("PRAGMA table_info(players)")}
+            for name, ddl in (("coins", "INTEGER NOT NULL DEFAULT 0"), ("owned", "TEXT NOT NULL DEFAULT '[]'"),
+                              ("banner", "TEXT NOT NULL DEFAULT ''"), ("frame", "TEXT NOT NULL DEFAULT ''")):
+                if name not in cols:
+                    self.conn.execute(f"ALTER TABLE players ADD COLUMN {name} {ddl}")
+            self.conn.commit()
 
     def close(self) -> None:
         with self._lock:
@@ -246,13 +296,15 @@ class Database:
             row = self.conn.execute("SELECT * FROM players WHERE tg_id=?", (tg_id,)).fetchone()
         if row is None:
             return {"name": "", "photo": None, "wins": 0, "losses": 0, "rounds": 0, "round_wins": 0,
-                    "points": 0, "win_rate": 0, "streak": 0, "best_streak": 0, "best_score": 0}
+                    "points": 0, "win_rate": 0, "streak": 0, "best_streak": 0, "best_score": 0,
+                    "coins": 0, "owned": [], "banner": "", "frame": ""}
         matches = row["wins"] + row["losses"]
         return {
             "name": row["name"], "photo": row["photo"], "wins": row["wins"], "losses": row["losses"],
             "rounds": row["rounds"], "round_wins": row["round_wins"], "points": row["points"],
             "win_rate": round(100 * row["wins"] / matches) if matches else 0,
             "streak": row["streak"], "best_streak": row["best_streak"], "best_score": row["best_score"],
+            "coins": row["coins"], "owned": _json_list(row["owned"]), "banner": row["banner"] or "", "frame": row["frame"] or "",
         }
 
     def record_round(self, event_id: str, tg_id: int, won: bool, points: int) -> bool:
@@ -284,6 +336,42 @@ class Database:
                     (int(score), time.time(), tg_id),
                 )
             return True
+
+    def add_coins(self, event_id: str, tg_id: int, amount: int) -> bool:
+        """Идемпотентное начисление Ucoin: повторный event_id игнорируется."""
+        if amount <= 0:
+            return False
+        with self._lock, self.conn:
+            cur = self.conn.execute("INSERT OR IGNORE INTO events (event_id, created_at) VALUES (?, ?)", (event_id, time.time()))
+            if cur.rowcount != 1:
+                return False
+            self.conn.execute("UPDATE players SET coins=coins+?, updated_at=? WHERE tg_id=?", (int(amount), time.time(), tg_id))
+            return True
+
+    def buy_item(self, tg_id: int, item_id: str, price: int) -> str:
+        with self._lock, self.conn:
+            row = self.conn.execute("SELECT coins, owned FROM players WHERE tg_id=?", (tg_id,)).fetchone()
+            if row is None:
+                return "poor"
+            owned = _json_list(row["owned"])
+            if item_id in owned:
+                return "owned"
+            if row["coins"] < price:
+                return "poor"
+            owned.append(item_id)
+            self.conn.execute("UPDATE players SET coins=coins-?, owned=?, updated_at=? WHERE tg_id=?",
+                              (int(price), json.dumps(owned), time.time(), tg_id))
+            return "ok"
+
+    def equip(self, tg_id: int, kind: str, item_id: str) -> None:
+        col = "banner" if kind == "banner" else "frame"
+        with self._lock, self.conn:
+            self.conn.execute(f"UPDATE players SET {col}=?, updated_at=? WHERE tg_id=?", (item_id, time.time(), tg_id))
+
+    def get_cosmetics(self, tg_id: int) -> tuple:
+        with self._lock:
+            row = self.conn.execute("SELECT banner, frame FROM players WHERE tg_id=?", (tg_id,)).fetchone()
+        return (row["banner"] or "", row["frame"] or "") if row else ("", "")
 
     def leaderboard(self, limit: int = 20) -> list[dict]:
         with self._lock:
@@ -365,7 +453,7 @@ def hand_points(hand: list[dict]) -> int:
 
 class Player:
     __slots__ = ("pid", "name", "photo", "bot", "difficulty", "hand", "connected", "disc_at", "auto",
-                 "uno_called", "timeouts")
+                 "uno_called", "timeouts", "frame", "banner")
 
     def __init__(self, pid: str, name: str, photo: Optional[str] = None, bot: bool = False, difficulty: str = "normal"):
         self.pid = pid
@@ -379,6 +467,8 @@ class Player:
         self.auto = False
         self.uno_called = False
         self.timeouts = 0
+        self.frame = ""
+        self.banner = ""
 
     def to_dict(self) -> dict:
         return {s: getattr(self, s) for s in self.__slots__}
@@ -478,6 +568,8 @@ class Room:
         self.events.append({"eid": self.event_seq, "t": t, **kw})
 
     def _eid(self, kind: str, pid: str) -> str:
+        if kind == "c":
+            return f"{self.uid}:s{self.series}:r{self.round_no}:c:{pid}"
         if kind == "r":
             return f"{self.uid}:s{self.series}:r{self.round_no}:{pid}"
         return f"{self.uid}:s{self.series}:m:{pid}"
@@ -813,10 +905,8 @@ class Room:
         p = self.get(pid)
         if p is None or self.status != "playing":
             raise GameError("uno_not_allowed", "Сейчас нельзя объявить UNO")
-        n = len(p.hand)
-        is_turn = self.players[self.turn].pid == pid
-        if not (n == 1 or (n == 2 and is_turn)):
-            raise GameError("uno_not_allowed", "UNO можно объявить, когда осталась одна карта (или две — перед ходом)")
+        if len(p.hand) != 1:
+            raise GameError("uno_not_allowed", "UNO можно объявить, только когда осталась одна карта — после того как вы выбросили предпоследнюю")
         p.uno_called = True
         if self.uno and self.uno["pid"] == pid:
             self.uno = None
@@ -916,11 +1006,13 @@ class Room:
             "match_winner": winner.pid if match_over else None,
             "target": self.target_score,
             "players": [
-                {"id": x.pid, "name": x.name, "photo": x.photo, "bot": x.bot, "cards": len(x.hand),
+                {"id": x.pid, "name": x.name, "photo": x.photo, "frame": x.frame, "banner": x.banner, "bot": x.bot, "cards": len(x.hand),
                  "hand_points": hand_points(x.hand), "score": self.scores.get(x.pid, 0)}
                 for x in self.players
             ],
         }
+        if not forced:
+            self._award(self._round_places(winner))
         self._ev("round_end", winner=winner.pid, points=pts, match_over=match_over)
         if self.ranked:
             for x in self.players:
@@ -933,8 +1025,35 @@ class Room:
                     self.pending_stats.append({"kind": "match", "event_id": self._eid("m", x.pid), "pid": x.pid,
                                                "won": x is winner, "score": self.scores.get(x.pid, 0)})
 
+    def _round_places(self, winner: Player) -> dict:
+        """Места по итогам раунда: победитель — 1-й, остальные — по сумме очков в руке (меньше — лучше)."""
+        places = {winner.pid: 1}
+        others = sorted((x for x in self.players if x is not winner), key=lambda x: hand_points(x.hand))
+        prev, rank = None, 1
+        for i, x in enumerate(others):
+            pts = hand_points(x.hand)
+            if pts != prev:
+                rank, prev = i + 2, pts
+            places[x.pid] = rank
+        return places
+
+    def _award(self, places: dict) -> None:
+        """Начисляет Ucoin людям (боты показываются в итогах, но монеты не получают)."""
+        n = len(self.players)
+        rewards: dict[str, dict] = {}
+        for x in self.players:
+            pl = places.get(x.pid)
+            if pl is None:
+                continue
+            coins = reward_for(pl, n)
+            rewards[x.pid] = {"place": pl, "coins": coins}
+            if coins and not x.bot:
+                self.pending_stats.append({"kind": "coins", "event_id": self._eid("c", x.pid), "pid": x.pid, "coins": coins})
+        if self.result is not None:
+            self.result["rewards"] = rewards
+
     def _finish_player(self, p: Player) -> None:
-        self.placements.append({"id": p.pid, "name": p.name, "photo": p.photo, "bot": p.bot})
+        self.placements.append({"id": p.pid, "name": p.name, "photo": p.photo, "bot": p.bot, "frame": p.frame, "banner": p.banner})
         self._ev("place", pid=p.pid, place=len(self.placements))
 
     def _end_knockout(self, now: float, forced: bool = False) -> None:
@@ -954,11 +1073,13 @@ class Room:
             "match_over": True, "match_winner": first["id"], "target": 0,
             "places": [{**e, "place": i + 1} for i, e in enumerate(self.placements)],
             "players": [
-                {"id": x.pid, "name": x.name, "photo": x.photo, "bot": x.bot, "cards": len(x.hand),
+                {"id": x.pid, "name": x.name, "photo": x.photo, "frame": x.frame, "banner": x.banner, "bot": x.bot, "cards": len(x.hand),
                  "hand_points": hand_points(x.hand), "score": 0}
                 for x in self.players
             ],
         }
+        if not forced:
+            self._award({e["id"]: i + 1 for i, e in enumerate(self.placements)})
         self._ev("round_end", winner=first["id"], points=0, match_over=True)
         if self.ranked:
             for x in self.players:
@@ -1019,6 +1140,7 @@ class Room:
     def _pview(self, p: Player) -> dict:
         return {
             "id": p.pid, "name": p.name, "photo": p.photo, "bot": p.bot,
+            "frame": p.frame, "banner": p.banner,
             "difficulty": p.difficulty if p.bot else None,
             "connected": p.connected, "auto": p.auto,
             "cards": len(p.hand) if self.status != "lobby" else 0,
@@ -1139,8 +1261,12 @@ async def flush_stats(room: Room) -> None:
             continue
         if it["kind"] == "round":
             ok = db.record_round(it["event_id"], tg, it["won"], it["points"])
-        else:
+        elif it["kind"] == "match":
             ok = db.record_match(it["event_id"], tg, it["won"], it["score"])
+        elif it["kind"] == "coins":
+            ok = db.add_coins(it["event_id"], tg, it["coins"])
+        else:
+            ok = False
         if ok:
             touched.add(it["pid"])
     for pid in touched:
@@ -1283,7 +1409,7 @@ async def h_create_room(conn: Conn, msg: dict) -> None:
     ensure_not_in_room(pid)
     training = get_bool(msg, "training", False)
     name = get_str(msg, "name", 24)
-    max_players = get_int(msg, "max_players", 4, 2, 4)
+    max_players = get_int(msg, "max_players", 4, 2, MAX_PLAYERS)
     public = get_bool(msg, "public", True)
     password = get_str(msg, "password", 16)
     allow_bots = get_bool(msg, "allow_bots", True)
@@ -1304,13 +1430,14 @@ async def h_create_room(conn: Conn, msg: dict) -> None:
         raise GameError("bad_request", "Пароль должен быть не короче 3 символов")
     bot_count = 0
     if training:
-        bot_count = get_int(msg, "bot_count", 2, 1, 3)
+        bot_count = get_int(msg, "bot_count", 2, 1, MAX_PLAYERS - 1)
         max_players, public, allow_bots, password = bot_count + 1, False, True, ""
     code = new_code()
     room = Room(code, name or f"Комната {code}", pid, max_players, public, allow_bots, target, stacking, turn_time, mode)
     if password:
         room.set_password(password)
     owner = Player(pid, conn.user["name"], conn.user.get("photo"))
+    owner.banner, owner.frame = db.get_cosmetics(int(pid))
     async with room.lock:
         room.add_player(owner)
         rooms[code] = room
@@ -1356,7 +1483,9 @@ async def join_room_impl(conn: Conn, code: str, password: str) -> None:
             pw_fails[(pid, code)] = (n + 1, time.time() + 60)
             raise GameError("bad_password", "Неверный пароль")
         pw_fails.pop((pid, code), None)
-        room.add_player(Player(pid, conn.user["name"], conn.user.get("photo")))
+        newp = Player(pid, conn.user["name"], conn.user.get("photo"))
+        newp.banner, newp.frame = db.get_cosmetics(int(pid))
+        room.add_player(newp)
         player_room[pid] = code
         room._ev("joined", pid=pid, name=conn.user["name"])
         await commit(room)
@@ -1510,6 +1639,71 @@ async def h_close_room(conn: Conn, msg: dict) -> None:
         await close_room(room, "closed")
 
 
+offline_claims: dict[str, tuple[int, int]] = {}
+
+
+async def send_profile(conn: Conn) -> None:
+    await send(conn, {"type": "profile", "profile": db.get_profile(int(conn.pid))})
+
+
+async def h_buy_item(conn: Conn, msg: dict) -> None:
+    item = CATALOG_BY_ID.get(get_str(msg, "item", 32))
+    if item is None:
+        raise GameError("bad_request", "Такого предмета нет")
+    if item["price"] <= 0:
+        raise GameError("free_item", "Этот предмет бесплатный — просто наденьте его")
+    res = db.buy_item(int(conn.pid), item["id"], item["price"])
+    if res == "owned":
+        raise GameError("owned", "Этот предмет уже у вас есть")
+    if res == "poor":
+        raise GameError("not_enough", "Не хватает Ucoin")
+    await send_profile(conn)
+
+
+async def h_equip_item(conn: Conn, msg: dict) -> None:
+    kind = get_str(msg, "kind", 8)
+    if kind not in ("banner", "frame"):
+        raise GameError("bad_request", "Недопустимый тип предмета")
+    item_id = get_str(msg, "item", 32)  # пустая строка — снять
+    tg = int(conn.pid)
+    if item_id:
+        item = CATALOG_BY_ID.get(item_id)
+        if item is None or item["kind"] != kind:
+            raise GameError("bad_request", "Такого предмета нет")
+        if item["price"] > 0 and item_id not in db.get_profile(tg)["owned"]:
+            raise GameError("not_owned", "Сначала купите этот предмет")
+    db.equip(tg, kind, item_id)
+    await send_profile(conn)
+    room = rooms.get(player_room.get(conn.pid, ""))
+    if room is not None:
+        async with room.lock:
+            p = room.get(conn.pid)
+            if p is not None and rooms.get(room.code) is room:
+                setattr(p, kind, item_id)
+                await commit(room)
+
+
+async def h_claim_offline(conn: Conn, msg: dict) -> None:
+    """Награда за партию без интернета/против ботов на устройстве. Сервер сам считает сумму и режет по суточному лимиту."""
+    n = get_int(msg, "players", None, 2, MAX_PLAYERS)
+    place = get_int(msg, "place", None, 1, MAX_PLAYERS)
+    if n is None or place is None or place > n:
+        raise GameError("bad_request", "Некорректный результат")
+    coins = reward_for(place, n)
+    if coins <= 0:
+        return
+    day = int(time.time() // 86400)
+    d, earned = offline_claims.get(conn.pid, (day, 0))
+    if d != day:
+        earned = 0
+    coins = min(coins, OFFLINE_DAILY_CAP - earned)
+    if coins <= 0:
+        raise GameError("cap", "Суточный лимит Ucoin за игры против ботов на устройстве исчерпан — играйте онлайн")
+    db.add_coins("off:" + uuid.uuid4().hex, int(conn.pid), coins)
+    offline_claims[conn.pid] = (day, earned + coins)
+    await send_profile(conn)
+
+
 HANDLERS: dict[str, Callable[[Conn, dict], Any]] = {
     "ping": h_ping, "get_rooms": h_get_rooms, "get_stats": h_get_stats, "create_room": h_create_room,
     "join_room": h_join_room, "quick_play": h_quick_play, "leave_room": h_leave_room,
@@ -1517,6 +1711,7 @@ HANDLERS: dict[str, Callable[[Conn, dict], Any]] = {
     "draw_card": h_draw_card, "pass_turn": h_pass_turn, "call_uno": h_call_uno, "catch_uno": h_catch_uno,
     "next_round": h_next_round, "return_to_lobby": h_return_to_lobby, "add_bot": h_add_bot,
     "kick": h_kick, "transfer_owner": h_transfer_owner, "close_room": h_close_room,
+    "buy_item": h_buy_item, "equip_item": h_equip_item, "claim_offline": h_claim_offline,
 }
 
 
@@ -1809,7 +2004,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
             "user": {"id": str(user["id"]), "name": user["name"], "photo": user.get("photo")},
             "profile": db.get_profile(user["id"]),
             "server_time": time.time(),
-            "config": {"unoWindow": UNO_WINDOW, "grace": RECONNECT_GRACE, "targets": list(TARGETS),
+            "config": {"catalog": CATALOG, "maxPlayers": MAX_PLAYERS, "unoWindow": UNO_WINDOW, "grace": RECONNECT_GRACE, "targets": list(TARGETS),
                        "turnTimes": list(TURN_TIMES)},
             "room": room.view(conn.pid, with_events=False) if room else None,
         })
