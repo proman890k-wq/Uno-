@@ -129,7 +129,8 @@ CODE_LEN = 5
 TARGETS = (100, 200, 300, 500)
 TURN_TIMES = (20, 30, 45, 60)
 DIFFICULTIES = ("easy", "normal", "hard")
-MODES = ("classic", "knockout")
+MODES = ("classic", "knockout", "teams")  # teams — «Напарники»: команды 1–4, место получает вся команда
+TEAM_COUNT = 4
 BOT_NAMES = ["Бот Макс", "Бот Лина", "Бот Артём", "Бот Зоя", "Бот Тимур", "Бот Ника", "Бот Рома", "Бот Эля"]
 BOT_UNO_RATE = {"easy": 0.6, "normal": 0.85, "hard": 0.98}
 BOT_CATCH_RATE = {"easy": 0.2, "normal": 0.5, "hard": 0.85}
@@ -453,7 +454,7 @@ def hand_points(hand: list[dict]) -> int:
 
 class Player:
     __slots__ = ("pid", "name", "photo", "bot", "difficulty", "hand", "connected", "disc_at", "auto",
-                 "uno_called", "timeouts", "frame", "banner")
+                 "uno_called", "timeouts", "frame", "banner", "team")
 
     def __init__(self, pid: str, name: str, photo: Optional[str] = None, bot: bool = False, difficulty: str = "normal"):
         self.pid = pid
@@ -469,6 +470,7 @@ class Player:
         self.timeouts = 0
         self.frame = ""
         self.banner = ""
+        self.team = 0  # номер команды (1–4) в режиме «Напарники»
 
     def to_dict(self) -> dict:
         return {s: getattr(self, s) for s in self.__slots__}
@@ -485,7 +487,7 @@ class Player:
 PERSIST_FIELDS = (
     "uid", "pw_salt", "pw_hash", "status", "round_no", "series", "ranked", "scores", "deck", "discard", "color",
     "direction", "turn", "drawn", "pending", "pending_kind", "turn_deadline", "bot_at", "uno", "forfeit_points",
-    "result", "created", "event_seq", "placements",
+    "result", "created", "event_seq", "placements", "marks",
 )
 
 
@@ -494,7 +496,7 @@ class Room:
                  allow_bots: bool = True, target_score: int = 200, stacking: bool = False, turn_time: int = 45,
                  mode: str = "classic"):
         self.code = code
-        self.mode = mode if mode in MODES else "classic"  # classic | knockout (выбивание: места 1, 2, 3…)
+        self.mode = mode if mode in MODES else "classic"  # classic | knockout (выбивание) | teams (напарники)
         self.uid = uuid.uuid4().hex[:12]
         self.name = name
         self.owner = owner
@@ -527,6 +529,7 @@ class Room:
         self.uno: Optional[dict] = None
         self.forfeit_points = 0
         self.result: Optional[dict] = None
+        self.marks: dict[str, list[int]] = {}  # «Напарники»: pid -> id карт, которые напарники пометили «играй эту»
         self.placements: list[dict] = []  # выбивание: игроки в порядке выхода (1-е место, 2-е, …)
         # служебное (не сохраняется)
         self.created = time.time()
@@ -563,6 +566,38 @@ class Room:
     def current(self) -> Player:
         return self.players[self.turn]
 
+    def _ko(self) -> bool:
+        """Режимы, где вышедшие игроки покидают игру и занимают места."""
+        return self.mode in ("knockout", "teams")
+
+    def _auto_team(self) -> int:
+        c1 = sum(1 for p in self.players if p.team == 1)
+        c2 = sum(1 for p in self.players if p.team == 2)
+        return 1 if c1 <= c2 else 2
+
+    def _place_map(self) -> dict:
+        """pid -> место. В «Напарниках» место одно на всю команду."""
+        if self.mode == "teams":
+            order: list = []
+            for e in self.placements:
+                if e.get("team") not in order:
+                    order.append(e.get("team"))
+            return {e["id"]: order.index(e.get("team")) + 1 for e in self.placements}
+        return {e["id"]: i + 1 for i, e in enumerate(self.placements)}
+
+    def _ko_over(self) -> bool:
+        act = self._active()
+        if self.mode == "teams":
+            return len({p.team for p in act}) <= 1
+        return len(act) <= 1
+
+    def _unmark(self, pid: str, card_id: int) -> None:
+        lst = self.marks.get(pid)
+        if lst and card_id in lst:
+            lst.remove(card_id)
+            if not lst:
+                self.marks.pop(pid, None)
+
     def _ev(self, t: str, **kw: Any) -> None:
         self.event_seq += 1
         self.events.append({"eid": self.event_seq, "t": t, **kw})
@@ -580,6 +615,8 @@ class Room:
             raise GameError("in_progress", "Матч уже начался")
         if len(self.players) >= self.max_players:
             raise GameError("room_full", "Комната заполнена")
+        if self.mode == "teams" and not p.team:
+            p.team = self._auto_team()
         self.players.append(p)
         self.scores.setdefault(p.pid, 0)
 
@@ -605,15 +642,46 @@ class Room:
         self.bot_at = None
         self.forfeit_points = 0
         self.placements = []
+        self.marks = {}
         for p in self.players:
             p.hand = []
             p.uno_called = False
             p.timeouts = 0
 
+    def set_team(self, by: str, target: str, team: int) -> None:
+        if self.mode != "teams" or self.status != "lobby":
+            raise GameError("bad_state", "Команды выбираются в лобби режима «Напарники»")
+        if team < 1 or team > TEAM_COUNT:
+            raise GameError("bad_request", "Недопустимая команда")
+        t = self.get(target)
+        if t is None:
+            raise GameError("bad_request", "Игрок не найден")
+        if target != by and not (by == self.owner and t.bot):
+            raise GameError("forbidden", "Свою команду каждый выбирает сам")
+        t.team = team
+
+    def mark_card(self, by: str, target: str, card_id: int) -> None:
+        if self.mode != "teams" or self.status != "playing":
+            raise GameError("bad_state", "Метки доступны в режиме «Напарники» во время игры")
+        a, t = self.get(by), self.get(target)
+        if a is None or t is None or a.pid == t.pid or not a.team or a.team != t.team:
+            raise GameError("not_teammate", "Метки можно ставить только карте напарника")
+        if not any(c["id"] == card_id for c in t.hand):
+            raise GameError("no_card", "У напарника нет такой карты")
+        lst = self.marks.setdefault(t.pid, [])
+        if card_id in lst:
+            lst.remove(card_id)
+        else:
+            lst.append(card_id)
+        if not lst:
+            self.marks.pop(t.pid, None)
+
     # ---- старт ---------------------------------------------------------------
     def start_series(self, now: float) -> None:
         if len(self.players) < 2:
             raise GameError("need_players", "Нужно минимум 2 игрока — пригласите друга или добавьте бота")
+        if self.mode == "teams" and len({p.team for p in self.players}) < 2:
+            raise GameError("need_teams", "Нужно минимум 2 команды — игроки должны быть в разных командах")
         self.series += 1
         self.round_no = 0
         self.scores = {p.pid: 0 for p in self.players}
@@ -630,6 +698,7 @@ class Room:
 
     def _start_round(self, now: float) -> None:
         self.round_no += 1
+        self.marks = {}
         self.deck = build_deck()
         random.shuffle(self.deck)
         for p in self.players:
@@ -657,7 +726,7 @@ class Room:
         self.uno = None
         self.status = "playing"
         # в «выбивании» каждая серия — один раунд, поэтому стартующего меняем по номеру серии
-        self.turn = (self.round_no - 1 + (self.series - 1 if self.mode == "knockout" else 0)) % len(self.players)
+        self.turn = (self.round_no - 1 + (self.series - 1 if self._ko() else 0)) % len(self.players)
         self._ev("deal", round=self.round_no)
         self._begin_turn(now)
 
@@ -783,9 +852,11 @@ class Room:
     def _do_play(self, p: Player, card: dict, color: Optional[str], now: float, extra: Optional[dict] = None) -> None:
         if extra is not None:
             p.hand.remove(extra)
+            self._unmark(p.pid, extra["id"])
             self.discard.append(extra)
             self._ev("play", pid=p.pid, card=extra, color=card["color"])
         p.hand.remove(card)
+        self._unmark(p.pid, card["id"])
         self.discard.append(card)
         self.color = color if card["color"] == "W" else card["color"]
         p.timeouts = 0
@@ -796,15 +867,16 @@ class Room:
             self._ev("color", pid=p.pid, color=self.color)
         left = len(p.hand)
         v = card["value"]
-        if left == 0 and self.mode == "knockout":
+        if left == 0 and self._ko():
             # выбивание: игрок занял место и выходит из игры, остальные продолжают
+            # (в «Напарниках» место получает вся команда сразу)
             self._finish_player(p)
-            if len(self._active()) <= 1:
+            if self._ko_over():
                 self._end_knockout(now)
                 return
         out = p.pid in self._fin_ids()
         na = len(self._active())
-        if left == 0 and self.mode != "knockout":
+        if left == 0 and not self._ko():
             # штраф последней карты («+2»/«+4») применяется до подсчёта очков
             if v in ("draw2", "wild4"):
                 victim = self.players[self._next_index()]
@@ -855,7 +927,8 @@ class Room:
 
     def _open_uno_window(self, p: Player, now: float) -> None:
         catcher = None
-        bots = [b for b in self.players if b.bot and b.pid != p.pid]
+        fin = self._fin_ids()
+        bots = [b for b in self.players if b.bot and b.pid != p.pid and b.pid not in fin]
         if bots and not p.bot:
             b = random.choice(bots)
             if random.random() < BOT_CATCH_RATE.get(b.difficulty, 0.5):
@@ -916,6 +989,8 @@ class Room:
         w = self.uno
         if self.status != "playing" or not w or now > w["until"]:
             raise GameError("nothing_to_catch", "Поймать некого: время вышло")
+        if by in self._fin_ids():
+            raise GameError("out_of_game", "Вы уже вышли из игры — ловить на UNO нельзя")
         target = target or w["pid"]
         t = self.get(target)
         if t is None or target != w["pid"] or by == target:
@@ -1037,9 +1112,9 @@ class Room:
             places[x.pid] = rank
         return places
 
-    def _award(self, places: dict) -> None:
-        """Начисляет Ucoin людям (боты показываются в итогах, но монеты не получают)."""
-        n = len(self.players)
+    def _award(self, places: dict, n: Optional[int] = None) -> None:
+        """Считает награды Ucoin за места для показа в итогах. Сами монеты клиент хранит у себя (localStorage)."""
+        n = n or len(self.players)
         rewards: dict[str, dict] = {}
         for x in self.players:
             pl = places.get(x.pid)
@@ -1047,14 +1122,22 @@ class Room:
                 continue
             coins = reward_for(pl, n)
             rewards[x.pid] = {"place": pl, "coins": coins}
-            if coins and not x.bot:
-                self.pending_stats.append({"kind": "coins", "event_id": self._eid("c", x.pid), "pid": x.pid, "coins": coins})
         if self.result is not None:
             self.result["rewards"] = rewards
 
+    def _add_place(self, p: Player) -> None:
+        self.placements.append({"id": p.pid, "name": p.name, "photo": p.photo, "bot": p.bot, "frame": p.frame, "banner": p.banner,
+                                "team": p.team if self.mode == "teams" else 0})
+        self._ev("place", pid=p.pid, place=self._place_map().get(p.pid))
+
     def _finish_player(self, p: Player) -> None:
-        self.placements.append({"id": p.pid, "name": p.name, "photo": p.photo, "bot": p.bot, "frame": p.frame, "banner": p.banner})
-        self._ev("place", pid=p.pid, place=len(self.placements))
+        if p.pid in self._fin_ids():
+            return
+        self._add_place(p)
+        if self.mode == "teams" and p.team:  # первый сбросивший карты приводит к месту всю команду
+            for m in self.players:
+                if m.team == p.team and m.pid not in self._fin_ids():
+                    self._add_place(m)
 
     def _end_knockout(self, now: float, forced: bool = False) -> None:
         for x in self._active():  # последний оставшийся занимает последнее место
@@ -1066,20 +1149,30 @@ class Room:
         self.drawn = None
         self.pending, self.pending_kind = 0, None
         first = self.placements[0]
-        pos = {e["id"]: i + 1 for i, e in enumerate(self.placements)}
+        pos = self._place_map()
+        n_award = max(pos.values()) if self.mode == "teams" else len(self.players)
         self.result = {
-            "mode": "knockout",
+            "mode": self.mode,
             "winner": first["id"], "winner_name": first["name"], "points": 0,
             "match_over": True, "match_winner": first["id"], "target": 0,
-            "places": [{**e, "place": i + 1} for i, e in enumerate(self.placements)],
+            "places": [{**e, "place": pos[e["id"]]} for e in self.placements],
             "players": [
                 {"id": x.pid, "name": x.name, "photo": x.photo, "frame": x.frame, "banner": x.banner, "bot": x.bot, "cards": len(x.hand),
                  "hand_points": hand_points(x.hand), "score": 0}
                 for x in self.players
             ],
         }
+        if self.mode == "teams":
+            teams_out: list = []
+            for e in self.placements:
+                if e["team"] not in teams_out:
+                    teams_out.append(e["team"])
+            self.result["team_places"] = [
+                {"team": t, "place": i + 1, "names": [e["name"] for e in self.placements if e["team"] == t]}
+                for i, t in enumerate(teams_out)
+            ]
         if not forced:
-            self._award({e["id"]: i + 1 for i, e in enumerate(self.placements)})
+            self._award(dict(pos), n_award)
         self._ev("round_end", winner=first["id"], points=0, match_over=True)
         if self.ranked:
             for x in self.players:
@@ -1111,6 +1204,7 @@ class Room:
                 self.uno = None
         self.players.pop(idx)
         self.scores.pop(pid, None)
+        self.marks.pop(pid, None)
         self._ev("left", pid=pid, name=p.name)
         humans = [x for x in self.players if not x.bot]
         if not humans:
@@ -1119,7 +1213,7 @@ class Room:
             self.owner = next((x for x in humans if x.connected), humans[0]).pid
         n = len(self.players)
         if self.status == "playing":
-            if self.mode == "knockout" and len(self._active()) < 2:
+            if self._ko() and self._ko_over():
                 self._end_knockout(now, forced=True)
             elif n < 2:
                 self._end_round(self.players[0], now, forced=True)
@@ -1147,7 +1241,8 @@ class Room:
             "score": self.scores.get(p.pid, 0),
             "uno": bool(p.uno_called and len(p.hand) == 1),
             "owner": p.pid == self.owner,
-            "place": next((i + 1 for i, e in enumerate(self.placements) if e["id"] == p.pid), None),
+            "place": self._place_map().get(p.pid),
+            "team": p.team if self.mode == "teams" else 0,
         }
 
     def view(self, pid: str, with_events: bool = True) -> dict:
@@ -1159,7 +1254,7 @@ class Room:
             "stacking": self.stacking, "turn_time": self.turn_time, "mode": self.mode,
             "status": self.status, "round_no": self.round_no, "ranked": self.ranked,
             "players": [self._pview(p) for p in self.players],
-            "you": pid, "server_time": time.time(),
+            "you": pid, "server_time": time.time(), "uid": self.uid, "series": self.series,
             "events": list(self.events) if with_events else [],
         }
         me = self.get(pid)
@@ -1168,7 +1263,25 @@ class Room:
             my_turn = playing and self.players[self.turn].pid == pid
             u = self.uno
             hand = sorted(me.hand, key=lambda c: (COLOR_ORDER[c["color"]], VALUE_ORDER[c["value"]], c["id"]))
+            # чужие карты видят только: вышедшие из игры (наблюдатели) и напарники по команде
+            fin = self._fin_ids()
+            viewer_out = self._ko() and pid in fin
+            hands: dict[str, list] = {}
+            marks: dict[str, list] = {}
+            for x in self.players:
+                if x.pid == pid:
+                    continue
+                mate = self.mode == "teams" and me.team and x.team == me.team
+                if viewer_out or mate:
+                    hands[x.pid] = sorted(x.hand, key=lambda c: (COLOR_ORDER[c["color"]], VALUE_ORDER[c["value"]], c["id"]))
+            for owner_pid in [pid, *hands.keys()]:
+                owner_p = self.get(owner_pid)
+                ids = {c["id"] for c in owner_p.hand} if owner_p else set()
+                lst = [i for i in self.marks.get(owner_pid, []) if i in ids]
+                if lst:
+                    marks[owner_pid] = lst
             d["game"] = {
+                "hands": hands, "marks": marks,
                 "top": self.discard[-1], "color": self.color, "direction": self.direction,
                 "turn": self.players[self.turn].pid if playing else None,
                 "deck": len(self.deck), "pending": self.pending, "pending_kind": self.pending_kind,
@@ -1218,6 +1331,7 @@ db: Optional[Database] = None
 rooms: dict[str, Room] = {}
 conns: dict[str, "Conn"] = {}
 player_room: dict[str, str] = {}
+cosmetics: dict[str, tuple] = {}  # pid -> (баннер, рамка): присылает клиент, монеты и покупки хранятся у игрока на устройстве
 pw_fails: dict[tuple[str, str], tuple[int, float]] = {}
 
 
@@ -1263,8 +1377,6 @@ async def flush_stats(room: Room) -> None:
             ok = db.record_round(it["event_id"], tg, it["won"], it["points"])
         elif it["kind"] == "match":
             ok = db.record_match(it["event_id"], tg, it["won"], it["score"])
-        elif it["kind"] == "coins":
-            ok = db.add_coins(it["event_id"], tg, it["coins"])
         else:
             ok = False
         if ok:
@@ -1437,7 +1549,7 @@ async def h_create_room(conn: Conn, msg: dict) -> None:
     if password:
         room.set_password(password)
     owner = Player(pid, conn.user["name"], conn.user.get("photo"))
-    owner.banner, owner.frame = db.get_cosmetics(int(pid))
+    owner.banner, owner.frame = cosmetics.get(pid, ("", ""))
     async with room.lock:
         room.add_player(owner)
         rooms[code] = room
@@ -1484,7 +1596,7 @@ async def join_room_impl(conn: Conn, code: str, password: str) -> None:
             raise GameError("bad_password", "Неверный пароль")
         pw_fails.pop((pid, code), None)
         newp = Player(pid, conn.user["name"], conn.user.get("photo"))
-        newp.banner, newp.frame = db.get_cosmetics(int(pid))
+        newp.banner, newp.frame = cosmetics.get(pid, ("", ""))
         room.add_player(newp)
         player_room[pid] = code
         room._ev("joined", pid=pid, name=conn.user["name"])
@@ -1639,69 +1751,39 @@ async def h_close_room(conn: Conn, msg: dict) -> None:
         await close_room(room, "closed")
 
 
-offline_claims: dict[str, tuple[int, int]] = {}
-
-
-async def send_profile(conn: Conn) -> None:
-    await send(conn, {"type": "profile", "profile": db.get_profile(int(conn.pid))})
-
-
-async def h_buy_item(conn: Conn, msg: dict) -> None:
-    item = CATALOG_BY_ID.get(get_str(msg, "item", 32))
-    if item is None:
-        raise GameError("bad_request", "Такого предмета нет")
-    if item["price"] <= 0:
-        raise GameError("free_item", "Этот предмет бесплатный — просто наденьте его")
-    res = db.buy_item(int(conn.pid), item["id"], item["price"])
-    if res == "owned":
-        raise GameError("owned", "Этот предмет уже у вас есть")
-    if res == "poor":
-        raise GameError("not_enough", "Не хватает Ucoin")
-    await send_profile(conn)
-
-
-async def h_equip_item(conn: Conn, msg: dict) -> None:
-    kind = get_str(msg, "kind", 8)
-    if kind not in ("banner", "frame"):
-        raise GameError("bad_request", "Недопустимый тип предмета")
-    item_id = get_str(msg, "item", 32)  # пустая строка — снять
-    tg = int(conn.pid)
-    if item_id:
-        item = CATALOG_BY_ID.get(item_id)
-        if item is None or item["kind"] != kind:
-            raise GameError("bad_request", "Такого предмета нет")
-        if item["price"] > 0 and item_id not in db.get_profile(tg)["owned"]:
-            raise GameError("not_owned", "Сначала купите этот предмет")
-    db.equip(tg, kind, item_id)
-    await send_profile(conn)
+async def h_set_cosmetics(conn: Conn, msg: dict) -> None:
+    """Баннер и рамку выбирает клиент (покупки и монеты хранятся на его устройстве). Сервер лишь показывает их другим игрокам."""
+    banner = get_str(msg, "banner", 32)
+    frame = get_str(msg, "frame", 32)
+    for kind, val in (("banner", banner), ("frame", frame)):
+        if val:
+            it = CATALOG_BY_ID.get(val)
+            if it is None or it["kind"] != kind:
+                raise GameError("bad_request", "Такого предмета нет")
+    cosmetics[conn.pid] = (banner, frame)
     room = rooms.get(player_room.get(conn.pid, ""))
     if room is not None:
         async with room.lock:
             p = room.get(conn.pid)
             if p is not None and rooms.get(room.code) is room:
-                setattr(p, kind, item_id)
+                p.banner, p.frame = banner, frame
                 await commit(room)
 
 
-async def h_claim_offline(conn: Conn, msg: dict) -> None:
-    """Награда за партию без интернета/против ботов на устройстве. Сервер сам считает сумму и режет по суточному лимиту."""
-    n = get_int(msg, "players", None, 2, MAX_PLAYERS)
-    place = get_int(msg, "place", None, 1, MAX_PLAYERS)
-    if n is None or place is None or place > n:
-        raise GameError("bad_request", "Некорректный результат")
-    coins = reward_for(place, n)
-    if coins <= 0:
-        return
-    day = int(time.time() // 86400)
-    d, earned = offline_claims.get(conn.pid, (day, 0))
-    if d != day:
-        earned = 0
-    coins = min(coins, OFFLINE_DAILY_CAP - earned)
-    if coins <= 0:
-        raise GameError("cap", "Суточный лимит Ucoin за игры против ботов на устройстве исчерпан — играйте онлайн")
-    db.add_coins("off:" + uuid.uuid4().hex, int(conn.pid), coins)
-    offline_claims[conn.pid] = (day, earned + coins)
-    await send_profile(conn)
+async def h_set_team(conn: Conn, msg: dict) -> None:
+    team = get_int(msg, "team", None, 1, TEAM_COUNT)
+    if team is None:
+        raise GameError("bad_request", "Не указана команда")
+    target = get_str(msg, "target", 40) or conn.pid
+    await room_action(conn, lambda room, now: room.set_team(conn.pid, target, team))
+
+
+async def h_mark_card(conn: Conn, msg: dict) -> None:
+    target = get_str(msg, "target", 40)
+    cid = get_int(msg, "card_id", None, 0, 107)
+    if not target or cid is None:
+        raise GameError("bad_request", "Не указана карта напарника")
+    await room_action(conn, lambda room, now: room.mark_card(conn.pid, target, cid))
 
 
 HANDLERS: dict[str, Callable[[Conn, dict], Any]] = {
@@ -1711,7 +1793,7 @@ HANDLERS: dict[str, Callable[[Conn, dict], Any]] = {
     "draw_card": h_draw_card, "pass_turn": h_pass_turn, "call_uno": h_call_uno, "catch_uno": h_catch_uno,
     "next_round": h_next_round, "return_to_lobby": h_return_to_lobby, "add_bot": h_add_bot,
     "kick": h_kick, "transfer_owner": h_transfer_owner, "close_room": h_close_room,
-    "buy_item": h_buy_item, "equip_item": h_equip_item, "claim_offline": h_claim_offline,
+    "set_cosmetics": h_set_cosmetics, "set_team": h_set_team, "mark_card": h_mark_card,
 }
 
 
