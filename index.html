@@ -794,6 +794,25 @@ body.lite .bn.bn-b_aurora{animation:none}
 .tile .tname{font-size:13px;font-weight:700}
 .tile .btn{width:100%}
 @media (orientation:landscape){.shop-grid{grid-template-columns:repeat(4,1fr)}}
+
+/* ---------- рубашки соперников, открытые карты, метки, команды ---------- */
+.ofan{display:flex;justify-content:center;align-items:flex-start;margin-top:3px;pointer-events:none}
+.ofan .card{box-shadow:0 1px 3px rgba(0,0,0,.6);transition:none}
+.ofan .card.back .center{font-size:calc(var(--cw)*.3)}
+.hpanel{display:flex;flex-direction:column;gap:4px;padding:2px 12px;max-height:max(88px,19vh);overflow-y:auto;scrollbar-width:thin}
+.hrow{display:flex;align-items:center;gap:8px;min-width:0}
+.hrow .hn{flex:none;width:64px;font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hcards{display:flex;align-items:flex-end;overflow-x:auto;padding:4px 4px 2px;min-width:0;--cw:34px;scrollbar-width:none}
+.hcards::-webkit-scrollbar{display:none}
+.hcards .card{margin-left:-12px;box-shadow:0 2px 5px rgba(0,0,0,.55)}
+.hcards .card:first-child{margin-left:0}
+.hcards.mate .card{cursor:pointer}
+.card .mk{position:absolute;top:2%;right:8%;z-index:6;font-size:calc(var(--cw)*.32);line-height:1;color:#ff2bd6;text-shadow:0 0 3px #fff,0 0 8px #ff2bd6}
+.card.marked{outline:calc(var(--cw)*.07) solid #ff2bd6;outline-offset:1px}
+.teambtns{display:flex;gap:4px;flex:none}
+.tb{width:30px;height:30px;padding:0;border-radius:9px;background:rgba(255,255,255,.08);border:2px solid transparent;font-size:15px;line-height:1}
+.tb.on{border-color:#fff;background:rgba(255,255,255,.24)}
+@media (orientation:landscape){.hpanel{padding:0;max-height:34vh}.hrow .hn{width:48px}}
 </style>
 </head>
 <body>
@@ -844,7 +863,10 @@ const DIFF_NAMES = { easy: 'Лёгкий', normal: 'Средний', hard: 'Си
 const MODE_HINT = {
   classic: 'Раунд заканчивается, когда кто-то сбросил все карты. Играем до нужного числа очков.',
   knockout: 'Кто сбросил все карты — занимает место (1-е, 2-е, 3-е…) и выходит. Остальные играют дальше, последний — на последнем месте.',
+  teams: 'Команды 1–4. Как только один из команды сбросил все карты — место получает вся команда. Вы видите карты напарника и можете ставить ему метки ★, какие карты играть.',
 };
+const isKO = R => R.mode === 'knockout' || R.mode === 'teams';
+const TEAM_ICON = ['', '🟥', '🟦', '🟩', '🟨'];
 const medal = n => ({ 1: '🥇', 2: '🥈', 3: '🥉' }[n] || '🎖');
 
 function h(tag, props, ...kids) {
@@ -868,16 +890,98 @@ const bnCls = u => (u && u.banner ? ' bn bn-' + u.banner : '');
 const L_REWARDS = { 2: [500, 100], 3: [500, 250, 100], 4: [500, 250, 100, 50], 5: [500, 250, 100, 50, 25] };
 function rewardFor(place, n) { const t = L_REWARDS[Math.max(2, Math.min(n, 5))]; return place >= 1 && place <= t.length ? t[place - 1] : 0; }
 const CLAIMS_KEY = 'uno_pending_claims_v1';
-function claimOffline(place, n) {
-  if (!rewardFor(place, n)) return;
-  if (S.authed && Net.sendRaw({ type: 'claim_offline', place, players: n })) return;
-  try { const a = JSON.parse(localStorage.getItem(CLAIMS_KEY) || '[]'); a.push({ place, n }); localStorage.setItem(CLAIMS_KEY, JSON.stringify(a.slice(-20))); } catch (e) {}
+
+/* ========================= локальный профиль: монеты, предметы, статистика ========================= */
+/* Всё хранится в localStorage этого устройства. Сервер монеты и покупки не трогает: он только показывает другим игрокам ваш баннер и рамку. */
+const LOCAL_CATALOG = [
+  { id: 'b_blue', kind: 'banner', name: 'Ночной синий', price: 0 },
+  { id: 'b_green', kind: 'banner', name: 'Ёлочный', price: 0 },
+  { id: 'b_candy', kind: 'banner', name: 'Леденец', price: 250 },
+  { id: 'b_sunset', kind: 'banner', name: 'Закат', price: 300 },
+  { id: 'b_aurora', kind: 'banner', name: 'Северное сияние', price: 450 },
+  { id: 'b_ny', kind: 'banner', name: 'Новогодняя ночь', price: 600 },
+  { id: 'b_gold', kind: 'banner', name: 'Золото', price: 700 },
+  { id: 'b_cosmos', kind: 'banner', name: 'Космос', price: 900 },
+  { id: 'b_fire', kind: 'banner', name: 'Пламя', price: 1200 },
+  { id: 'f_snow', kind: 'frame', name: 'Снежная', price: 0 },
+  { id: 'f_green', kind: 'frame', name: 'Зелёная', price: 0 },
+  { id: 'f_gold', kind: 'frame', name: 'Золотая', price: 300 },
+  { id: 'f_ice', kind: 'frame', name: 'Ледяная', price: 600 },
+  { id: 'f_neon', kind: 'frame', name: 'Неон', price: 800 },
+  { id: 'f_fire', kind: 'frame', name: 'Огненная', price: 1000 },
+  { id: 'f_santa', kind: 'frame', name: 'Дед Мороз', price: 1200 },
+  { id: 'f_royal', kind: 'frame', name: 'Королевская', price: 2000 },
+];
+const STORE_KEY = 'uno_local_profile_v1';
+const Store = {
+  d: null,
+  blank() { return { coins: 0, owned: [], banner: '', frame: '', wins: 0, losses: 0, rounds: 0, round_wins: 0, points: 0, streak: 0, best_streak: 0, best_score: 0, seen: [], migrated: false }; },
+  load() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) {}
+    this.d = Object.assign(this.blank(), d && typeof d === 'object' ? d : {});
+    for (const k of ['coins', 'wins', 'losses', 'rounds', 'round_wins', 'points', 'streak', 'best_streak', 'best_score']) this.d[k] = Math.max(0, parseInt(this.d[k], 10) || 0);
+    if (!Array.isArray(this.d.owned)) this.d.owned = [];
+    if (!Array.isArray(this.d.seen)) this.d.seen = [];
+    this.d.banner = String(this.d.banner || ''); this.d.frame = String(this.d.frame || '');
+  },
+  save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(this.d)); } catch (e) {} },
+  profile() { const d = this.d, m = d.wins + d.losses; return { ...d, win_rate: m ? Math.round(100 * d.wins / m) : 0 }; },
+  has(id) { const it = LOCAL_CATALOG.find(x => x.id === id); return !!it && (it.price === 0 || this.d.owned.includes(id)); },
+  /* один раз подтягиваем то, что копилось на сервере раньше */
+  importServer(p) {
+    const d = this.d; if (d.migrated || !p) return;
+    d.coins += Math.max(0, +p.coins || 0);
+    for (const k of ['wins', 'losses', 'rounds', 'round_wins', 'points']) d[k] += Math.max(0, +p[k] || 0);
+    d.best_score = Math.max(d.best_score, +p.best_score || 0);
+    d.best_streak = Math.max(d.best_streak, +p.best_streak || 0); d.streak = Math.max(d.streak, +p.streak || 0);
+    (p.owned || []).forEach(id => { if (LOCAL_CATALOG.some(x => x.id === id) && !d.owned.includes(id)) d.owned.push(id); });
+    if (!d.banner && this.has(p.banner)) d.banner = p.banner;
+    if (!d.frame && this.has(p.frame)) d.frame = p.frame;
+    d.migrated = true; this.save();
+  },
+  buy(it) {
+    const d = this.d;
+    if (!it || it.price <= 0) return 'bad';
+    if (d.owned.includes(it.id)) return 'owned';
+    if (d.coins < it.price) return 'poor';
+    d.coins -= it.price; d.owned.push(it.id); this.save(); return 'ok';
+  },
+  equip(kind, id) {
+    if (kind !== 'banner' && kind !== 'frame') return false;
+    if (id) { const it = LOCAL_CATALOG.find(x => x.id === id); if (!it || it.kind !== kind || !this.has(id)) return false; }
+    this.d[kind] = id || ''; this.save(); return true;
+  },
+  matchLoss() { const d = this.d; d.losses++; d.streak = 0; this.save(); },
+};
+function syncProfile() { S.profile = Store.profile(); }
+function sendCosmetics() { const p = Store.d; Net.sendRaw({ type: 'set_cosmetics', banner: p.banner, frame: p.frame }); }
+
+/* Итог раунда/матча → монеты и статистика. Ключ раунда не даёт засчитать одно и то же дважды (например, после переподключения). */
+function recordResult(R) {
+  const G = R.game, res = G && G.result; if (!res || !R.uid) return;
+  const me = R.you, rw = res.rewards && res.rewards[me]; if (!rw) return;
+  const key = R.uid + ':s' + R.series + ':r' + R.round_no, d = Store.d;
+  if (d.seen.includes(key)) return;
+  d.seen.push(key); if (d.seen.length > 60) d.seen = d.seen.slice(-60);
+  if (rw.coins) d.coins += rw.coins;
+  if (R.ranked) {   // в статистику идут только игры людей между собой (как раньше на сервере)
+    const ko = !!res.places, won = ko ? rw.place === 1 : res.winner === me;
+    d.rounds++; if (won) { d.round_wins++; d.points += ko ? 0 : (res.points || 0); }
+    if (res.match_over) {
+      const mp = res.players.find(p => p.id === me), score = mp ? mp.score : 0, mwon = ko ? rw.place === 1 : res.match_winner === me;
+      d.best_score = Math.max(d.best_score, score);
+      if (mwon) { d.wins++; d.streak++; d.best_streak = Math.max(d.best_streak, d.streak); } else { d.losses++; d.streak = 0; }
+    }
+  }
+  Store.save(); syncProfile();
 }
+/* Старые невыданные награды за офлайн-партии (прошлая версия отправляла их на сервер) */
 function flushClaims() {
   try {
     const a = JSON.parse(localStorage.getItem(CLAIMS_KEY) || '[]'); if (!a.length) return;
     localStorage.removeItem(CLAIMS_KEY);
-    a.forEach((c, i) => setTimeout(() => Net.sendRaw({ type: 'claim_offline', place: c.place, players: c.n }), 500 * i));
+    a.forEach(c => { Store.d.coins += rewardFor(c.place, c.n); }); Store.save(); syncProfile();
   } catch (e) {}
 }
 
@@ -1001,7 +1105,7 @@ function lHandPoints(h) { return h.reduce((s, c) => s + lPoints(c), 0); }
 class LocalGame {
   constructor(o) {
     this.target = o.target_score; this.turnTime = o.turn_time || 0; this.stacking = o.stacking !== false;
-    this.mode = o.mode === 'knockout' ? 'knockout' : 'classic'; this.placements = []; this.series = 0;
+    this.mode = o.mode === 'knockout' ? 'knockout' : 'classic'; this.placements = []; this.series = 0; this.uid = Math.random().toString(36).slice(2, 10);
     this.players = [{ id: 'me', name: o.name, photo: o.photo || null, frame: o.frame || '', banner: o.banner || '', bot: false, difficulty: null, hand: [], uno_called: false }];
     for (let i = 0; i < o.bot_count; i++) this.players.push({ id: 'bot' + i, name: L_BOT_NAMES[i], photo: null, bot: true, difficulty: o.difficulty, hand: [], uno_called: false });
     this.scores = {}; this.players.forEach(p => { this.scores[p.id] = 0; });
@@ -1142,7 +1246,7 @@ class LocalGame {
   }
   openUnoWindow(p, now) {
     let catcher = null;
-    const bots = this.players.filter(b => b.bot && b.id !== p.id);
+    const fin = this.finIds(), bots = this.players.filter(b => b.bot && b.id !== p.id && !fin.has(b.id));
     if (bots.length && !p.bot) { const b = bots[Math.floor(Math.random() * bots.length)]; if (Math.random() < (L_CATCH_RATE[b.difficulty] || .5)) catcher = b.id; }
     this.uno = { pid: p.id, until: now + L_UNO_WINDOW, catcher, catch_at: now + 1 + Math.random() * 1.5 };
   }
@@ -1180,6 +1284,7 @@ class LocalGame {
   catchUno(by, target, now) {
     const w = this.uno;
     if (this.status !== 'playing' || !w || now > w.until) throw new LErr('nothing_to_catch', 'Поймать некого: время вышло');
+    if (this.finIds().has(by)) throw new LErr('out_of_game', 'Вы уже вышли из игры — ловить на UNO нельзя');
     target = target || w.pid;
     const t = this.get(target);
     if (!t || target !== w.pid || by === target) throw new LErr('nothing_to_catch', 'Поймать некого');
@@ -1273,11 +1378,14 @@ class LocalGame {
     const myTurn = playing && this.cur().id === me, u = this.uno;
     const hand = my.hand.slice().sort((a, b) => (L_COLOR_ORDER[a.color] - L_COLOR_ORDER[b.color]) || (L_VALUE_ORDER[a.value] - L_VALUE_ORDER[b.value]) || (a.id - b.id));
     return {
-      code: 'OFFLINE', offline: true, mode: this.mode, name: 'Игра против ботов', owner: me, public: false, has_password: false, max_players: this.players.length,
+      code: 'OFFLINE', offline: true, uid: this.uid, series: this.series, mode: this.mode, name: 'Игра против ботов', owner: me, public: false, has_password: false, max_players: this.players.length,
       allow_bots: true, target_score: this.target, stacking: this.stacking, turn_time: this.turnTime, status: this.status, round_no: this.round_no, ranked: false,
       players: this.players.map(p => ({ id: p.id, name: p.name, photo: p.photo, frame: p.frame || '', banner: p.banner || '', bot: p.bot, difficulty: p.difficulty, connected: true, auto: false, cards: p.hand.length, score: this.scores[p.id], uno: !!(p.uno_called && p.hand.length === 1), owner: p.id === me, place: this.placeOf(p.id) })),
       you: me, server_time: now, events: this.events.slice(),
       game: {
+        // вышедший из игры видит карты остальных (наблюдатель)
+        hands: (this.mode === 'knockout' && this.finIds().has(me)) ? Object.fromEntries(this.players.filter(p => p.id !== me).map(p => [p.id, p.hand.slice().sort((a, b) => (L_COLOR_ORDER[a.color] - L_COLOR_ORDER[b.color]) || (L_VALUE_ORDER[a.value] - L_VALUE_ORDER[b.value]) || (a.id - b.id))])) : {},
+        marks: {},
         top: this.discard[this.discard.length - 1], color: this.color, direction: this.direction, turn: playing ? this.cur().id : null, deck: this.deck.length,
         pending: this.pending, pending_kind: this.pendingKind, turn_deadline: playing ? this.deadline : null,
         uno: u && playing ? { pid: u.pid, until: u.until } : null, hand, playable: this.playableIds(me),
@@ -1302,7 +1410,7 @@ const Local = {
     this.timer = setInterval(() => this.tick(), 300);
   },
   stop() { clearInterval(this.timer); this.timer = null; this.active = false; this.g = null; },
-  commit() { const v = this.g.view(Date.now() / 1000); this.g.events = []; const c = this.g.claim; this.g.claim = null; applyRoom(v, true); if (c) claimOffline(c.place, c.n); },
+  commit() { const v = this.g.view(Date.now() / 1000); this.g.events = []; applyRoom(v, true); },
   tick() { if (this.g && this.g.tick(Date.now() / 1000)) this.commit(); },
   exit() {
     this.stop(); S.room = null; S.lastRoom = null; ui.selected = null; closeSheet();
@@ -1427,8 +1535,8 @@ function handleMsg(m) {
     case 'room_state': onRoomState(m.room); break;
     case 'left_room': onLeft(m.reason); break;
     case 'rooms': S.rooms = m.rooms || []; if ($('#rooms-list')) fillRooms(); break;
-    case 'profile': S.profile = m.profile; if (!S.room) render(); break;
-    case 'stats': S.stats = m; S.profile = m.profile; if (S.screen === 'stats' && !S.room) render(); break;
+    case 'profile': break;  // монеты и профиль хранятся локально, серверный профиль игнорируем
+    case 'stats': S.stats = m; if (S.screen === 'stats' && !S.room) render(); break;
     case 'quick_none':
       confirmDialog('Свободных публичных комнат нет. Создать новую?', 'Создать', () => openCreate(true)); break;
     case 'pong': break;
@@ -1437,7 +1545,7 @@ function handleMsg(m) {
 
 function onAuth(m) {
   Net.attempt = 0; Net.everAuthed = true; S.authed = true; hideConn();
-  S.user = m.user; S.profile = m.profile; S.config = m.config || {}; setTimeout(flushClaims, 800);
+  S.user = m.user; S.config = m.config || {}; Store.importServer(m.profile); syncProfile(); sendCosmetics();
   S.offset = m.server_time - Date.now() / 1000;
   if (Local.active) return; // идёт офлайн-партия: онлайн-состояние подтянется после выхода в меню
   if (m.room) { S.screen = 'menu'; applyRoom(m.room, false); }
@@ -1470,6 +1578,11 @@ function applyRoom(room, live) {
   const prevTop = prev && prev.game ? prev.game.top : null;
   if (evs.some(e => e.t === 'deal')) { ui.dealAnim = true; ui.prevHand = null; }
   S.room = room;
+  if (room.status !== 'lobby' && room.game && room.game.result) recordResult(room);
+  if (live) {   // напарник пометил мою карту
+    const pm = (prev && prev.game && prev.game.marks && prev.game.marks[room.you]) || [], nm = (room.game && room.game.marks && room.game.marks[room.you]) || [];
+    if (nm.some(id => !pm.includes(id))) { toast('⭐ Напарник отметил карту — сыграйте её', 'ok'); Snd.play('turn'); vib('light'); }
+  }
   if (prev && prev.status === 'playing' && prev.game && room.game && prev.game.turn !== room.you && room.game.turn === room.you && room.status === 'playing') {
     Snd.play('turn'); vib('light');
   }
@@ -1759,7 +1872,7 @@ function menuView() {
       h('div', { class: 'logo' }, h('div', { class: 'logo-row' }, h('span', null, 'U'), h('span', null, 'N'), h('span', null, 'O')), h('small', null, 'ONLINE')),
       h('div', { class: 'card-panel profile' + bnCls(p) }, avatar({ ...u, frame: p.frame }, 56),
         h('div', { class: 'grow' }, h('div', { class: 'nm' }, u.name),
-          h('div', { class: 'muted', style: 'font-size:13px;margin-top:2px' }, on ? `🪙 ${p.coins || 0} Ucoin · 🏆 Побед: ${p.wins || 0}` : '📴 Нет связи с сервером'))),
+          h('div', { class: 'muted', style: 'font-size:13px;margin-top:2px' }, `🪙 ${p.coins || 0} Ucoin · 🏆 Побед: ${p.wins || 0}` + (on ? '' : ' · 📴 офлайн')))),
       on ? null : h('div', { class: 'muted offline-note' }, S.offlineNote || 'Онлайн-режимы недоступны.', ' ',
         h('button', { class: 'btn small', style: 'margin-top:8px', onClick: () => { Net.stopped = false; Net.attempt = 0; clearTimeout(Net.retryTimer); boot(); } }, '🔄 Подключиться'))),
     h('div', { class: 'menu-btns' },
@@ -1768,8 +1881,8 @@ function menuView() {
       h('button', { class: 'btn' + (on ? '' : ' dim'), onClick: () => (on ? openJoin('') : needNet()) }, '🚪 Войти в комнату'),
       h('button', { class: 'btn', onClick: () => { Snd.play('click'); openRules(); } }, '📖 Как играть'),
       h('div', { class: 'row' },
-        h('button', { class: 'btn small grow', onClick: () => (on ? go('stats') : needNet()) }, '🏆 Статистика'),
-        h('button', { class: 'btn small grow', onClick: () => (on ? go('shop') : needNet()) }, '🎨 Стиль'),
+        h('button', { class: 'btn small grow', onClick: () => go('stats') }, '🏆 Статистика'),
+        h('button', { class: 'btn small grow', onClick: () => go('shop') }, '🎨 Стиль'),
         h('button', { class: 'btn small grow', onClick: () => go('settings') }, '⚙️ Настройки'))));
 }
 /* ----- монетка FG ----- */
@@ -1794,7 +1907,7 @@ function openOffline() {
   const hint = h('div', { class: 'muted', style: 'font-size:12px;line-height:1.4;margin-top:6px' }, MODE_HINT.classic);
   const f = { mode: 'classic', bot_count: 3, difficulty: 'normal', target_score: 1000000, turn_time: 0, stacking: true };
   openSheet('Игра против ботов', [
-    h('div', { class: 'muted', style: 'font-size:13px;line-height:1.4' }, 'Работает без интернета и без сервера. Результаты в статистику не записываются.'),
+    h('div', { class: 'muted', style: 'font-size:13px;line-height:1.4' }, 'Работает без интернета и без сервера. Ucoin за места попадают в ваш профиль на этом устройстве, в статистику офлайн-партии не идут.'),
     h('div', { class: 'field' }, h('label', null, 'Режим игры'), seg([['classic', 'Классика'], ['knockout', 'Выбивание']], 'classic', v => { f.mode = v; hint.textContent = MODE_HINT[v]; }), hint),
     h('div', { class: 'field' }, h('label', null, 'Соперники-боты'), seg([[1, '1'], [2, '2'], [3, '3'], [5, '5'], [7, '7']], 3, v => { f.bot_count = v; })),
     h('div', { class: 'field' }, h('label', null, 'Сложность'), seg([['easy', 'Лёгкий'], ['normal', 'Средний'], ['hard', 'Сильный']], 'normal', v => { f.difficulty = v; })),
@@ -1811,7 +1924,7 @@ function openCreate(quick) {
   const pw = h('div', { class: 'field', hidden: true }, h('label', null, 'Пароль (необязательно)'), h('input', { type: 'password', maxlength: '16', autocomplete: 'off', placeholder: 'Оставьте пустым — вход по коду', onInput: e => { f.password = e.target.value; } }));
   const body = [
     h('div', { class: 'field' }, h('label', null, 'Название комнаты'), h('input', { type: 'text', maxlength: '24', placeholder: 'Например, «Вечерний UNO»', onInput: e => { f.name = e.target.value; } })),
-    h('div', { class: 'field' }, h('label', null, 'Режим игры'), seg([['classic', 'Классика'], ['knockout', 'Выбивание']], 'classic', v => { f.mode = v; hint.textContent = MODE_HINT[v]; }), hint),
+    h('div', { class: 'field' }, h('label', null, 'Режим игры'), seg([['classic', 'Классика'], ['knockout', 'Выбивание'], ['teams', '🤝 Напарники']], 'classic', v => { f.mode = v; hint.textContent = MODE_HINT[v]; }), hint),
     h('div', { class: 'field' }, h('label', null, 'Количество игроков'), seg([[2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6'], [7, '7'], [8, '8']], 4, v => { f.max_players = v; })),
     h('div', { class: 'field' }, h('label', null, 'Доступ'), seg([[true, '🌐 Публичная'], [false, '🔒 Приватная']], true, v => { f.public = v; pw.hidden = v; })),
     pw,
@@ -1847,7 +1960,7 @@ function fillRooms() {
   const box = $('#rooms-list'); if (!box) return;
   if (!S.rooms.length) { box.replaceChildren(h('div', { class: 'muted', style: 'text-align:center;padding:10px' }, 'Публичных комнат пока нет')); return; }
   box.replaceChildren(...S.rooms.map(r => h('button', { class: 'room-item', onClick: () => window.__joinFromList(r) },
-    h('div', { class: 'grow' }, h('div', { class: 'nm' }, (r.has_password ? '🔒 ' : '') + r.name), h('div', { class: 'muted', style: 'font-size:12px' }, `Код ${r.code} · хозяин ${r.owner_name || '—'}` + (r.mode === 'knockout' ? ' · Выбивание' : ''))),
+    h('div', { class: 'grow' }, h('div', { class: 'nm' }, (r.has_password ? '🔒 ' : '') + r.name), h('div', { class: 'muted', style: 'font-size:12px' }, `Код ${r.code} · хозяин ${r.owner_name || '—'}` + (r.mode === 'knockout' ? ' · Выбивание' : r.mode === 'teams' ? ' · Напарники' : ''))),
     h('div', { style: 'text-align:right' }, h('div', { style: 'font-weight:800' }, `${r.players}/${r.max_players}`), h('span', { class: 'badge' + (r.status === 'lobby' ? '' : ' busy') }, r.status === 'lobby' ? 'Ожидание' : 'Идёт игра')))));
 }
 
@@ -1864,7 +1977,7 @@ function statsView() {
       h('h3', null, 'Таблица лидеров'),
       lb.length ? lb.map(r => h('div', { class: 'lb-row' + (r.you ? ' you' : '') }, h('div', { class: 'rk' }, r.rank), avatar({ id: r.name + r.rank, name: r.name, photo: r.photo }, 34),
         h('div', { class: 'grow', style: 'font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, r.name), h('div', { style: 'text-align:right;font-size:13px' }, h('b', null, r.wins + ' поб.'), h('div', { class: 'muted', style: 'font-size:11px' }, r.points + ' очк.'))))
-        : h('div', { class: 'muted', style: 'text-align:center;padding:16px' }, 'Пока никто не сыграл матч')));
+        : h('div', { class: 'muted', style: 'text-align:center;padding:16px' }, S.authed ? 'Пока никто не сыграл матч' : 'Таблица лидеров доступна при подключении к серверу')));
 }
 
 /* ----- кастомизация профиля (баннеры и рамки) ----- */
@@ -1873,17 +1986,22 @@ function profUser() {
   const u = S.user || { id: 'guest', name: (tu && tu.first_name) || 'Гость' };
   return { ...u, frame: p.frame || '', banner: p.banner || '' };
 }
-async function doEquip(kind, item) { Snd.play('click'); await act('equip_item', { kind, item }); }
+function doEquip(kind, item) {
+  Snd.play('click');
+  if (!Store.equip(kind, item)) { toast('Сначала купите этот предмет', 'err'); return; }
+  syncProfile(); sendCosmetics(); render();
+}
 function doBuy(it) {
-  const coins = (S.profile && S.profile.coins) || 0;
+  const coins = Store.d.coins;
   if (coins < it.price) { toast(`Не хватает ${it.price - coins} Ucoin — играйте и зарабатывайте`, 'err'); Snd.play('error'); return; }
-  confirmDialog(`Купить «${it.name}» за ${it.price} Ucoin?`, 'Купить', async () => {
-    const r = await act('buy_item', { item: it.id });
-    if (r.ok) { toast('Куплено!', 'ok'); Snd.play('win'); vib('ok'); }
+  confirmDialog(`Купить «${it.name}» за ${it.price} Ucoin?`, 'Купить', () => {
+    const r = Store.buy(it);
+    if (r === 'ok') { syncProfile(); toast('Куплено!', 'ok'); Snd.play('win'); vib('ok'); render(); }
+    else { toast(r === 'owned' ? 'Этот предмет уже у вас есть' : 'Не хватает Ucoin', 'err'); Snd.play('error'); }
   });
 }
 function shopView() {
-  const p = S.profile || {}, cat = (S.config && S.config.catalog) || [], tab = S.shopTab || 'banner';
+  const p = S.profile || {}, cat = LOCAL_CATALOG, tab = S.shopTab || 'banner';
   const owned = new Set(p.owned || []), u = profUser(), eq = p[tab] || '', coins = p.coins || 0;
   const items = [{ id: '', kind: tab, name: tab === 'banner' ? 'Без баннера' : 'Без рамки', price: 0 }, ...cat.filter(i => i.kind === tab)];
   const tile = it => {
@@ -1944,17 +2062,19 @@ function lobbyView() {
   const R = S.room, me = R.you, isOwner = R.owner === me;
   const rows = R.players.map(p => h('div', { class: 'prow' + (p.connected ? '' : ' off') + bnCls(p) }, avatar(p, 44),
     h('div', { class: 'grow' }, h('div', { class: 'nm' }, (p.owner ? '👑 ' : '') + p.name + (p.id === me ? ' (вы)' : '')), h('div', { class: 'sub' }, p.bot ? '🤖 Бот · ' + DIFF_NAMES[p.difficulty] : (p.connected ? 'В комнате' : 'Нет связи…'))),
+    R.mode === 'teams' ? teamCtl(R, p, me, isOwner) : null,
     isOwner && p.id !== me ? [
       p.bot ? null : h('button', { class: 'icon-btn', title: 'Передать управление', onClick: () => confirmDialog(`Передать управление комнатой игроку ${p.name}?`, 'Передать', () => act('transfer_owner', { target: p.id })) }, '👑'),
       h('button', { class: 'icon-btn', title: 'Исключить', onClick: () => act('kick', { target: p.id }) }, '✖')] : null));
   for (let i = R.players.length; i < R.max_players; i++) rows.push(h('div', { class: 'prow empty' }, 'Ожидание игрока…'));
   const free = R.players.length < R.max_players;
+  const needTeams = R.mode === 'teams' && new Set(R.players.map(p => p.team)).size < 2;
   return h('div', { class: 'screen lobby' },
     h('div', { class: 'lob-l' },
     h('div', { class: 'lobby-head' }, h('button', { class: 'icon-btn', onClick: leaveRoom, 'aria-label': 'Выйти' }, '←'), h('div', { class: 't grow' }, R.name)),
     h('div', { class: 'chips' }, h('span', { class: 'chip' }, R.public ? '🌐 Публичная' : '🔒 Приватная'), R.has_password ? h('span', { class: 'chip' }, '🔑 Пароль') : null,
       h('span', { class: 'chip' }, '⏱ ' + R.turn_time + ' с'),
-      R.mode === 'knockout' ? h('span', { class: 'chip' }, '🎯 Выбивание') : null, R.allow_bots ? h('span', { class: 'chip' }, '🤖 Боты') : null, R.stacking ? h('span', { class: 'chip' }, '➕ Наложение') : null),
+      R.mode === 'knockout' ? h('span', { class: 'chip' }, '🎯 Выбивание') : null, R.mode === 'teams' ? h('span', { class: 'chip' }, '🤝 Напарники') : null, R.allow_bots ? h('span', { class: 'chip' }, '🤖 Боты') : null, R.stacking ? h('span', { class: 'chip' }, '➕ Наложение') : null),
     h('div', { class: 'card-panel stack', style: 'gap:10px' },
       h('div', { class: 'codebox' }, h('div', null, h('div', { class: 'muted', style: 'font-size:12px' }, 'Код комнаты'), h('div', { class: 'code' }, R.code)),
         h('button', { class: 'btn small', onClick: () => copyText(R.code) }, '📋 Скопировать код')),
@@ -1962,15 +2082,21 @@ function lobbyView() {
     h('div', { class: 'lob-r' },
     h('div', { class: 'plist' }, rows),
     isOwner && R.allow_bots && free ? h('div', { class: 'row', style: 'margin-bottom:10px' }, ['easy', 'normal', 'hard'].map(d => h('button', { class: 'btn small grow', onClick: () => act('add_bot', { difficulty: d }) }, '🤖+ ' + DIFF_NAMES[d]))) : null,
-    isOwner ? h('button', { class: 'btn green', disabled: R.players.length < 2, onClick: () => { Snd.play('click'); act('start_game'); } }, R.players.length < 2 ? 'Нужно минимум 2 участника' : '▶ Начать матч')
+    isOwner ? h('button', { class: 'btn green', disabled: R.players.length < 2 || needTeams, onClick: () => { Snd.play('click'); act('start_game'); } }, R.players.length < 2 ? 'Нужно минимум 2 участника' : needTeams ? 'Нужны минимум 2 команды' : '▶ Начать матч')
       : h('div', { class: 'muted', style: 'text-align:center;padding:12px' }, '⏳ Ждём, пока владелец начнёт игру…'),
     h('div', { class: 'row', style: 'margin-top:10px' }, h('button', { class: 'btn small grow', onClick: leaveRoom }, 'Выйти'),
       isOwner ? h('button', { class: 'btn small red grow', onClick: () => confirmDialog('Закрыть комнату для всех игроков?', 'Закрыть', () => act('close_room'), true) }, 'Закрыть комнату') : null)));
 }
+function teamCtl(R, p, me, isOwner) {
+  const can = p.id === me || (isOwner && p.bot);
+  if (!can) return h('span', { class: 'chip' }, TEAM_ICON[p.team] + ' Команда ' + p.team);
+  return h('div', { class: 'teambtns' }, [1, 2, 3, 4].map(t => h('button', { class: 'tb' + (p.team === t ? ' on' : ''), title: 'Команда ' + t, 'aria-label': 'Команда ' + t,
+    onClick: () => { Snd.play('click'); act('set_team', { team: t, target: p.id }); } }, TEAM_ICON[t])));
+}
 function leaveRoom() {
   const R = S.room; if (!R) return;
   const inMatch = R.status === 'playing' || R.status === 'round_over';
-  if (inMatch) confirmDialog('Выйти из матча?' + (R.ranked ? ' Это будет засчитано как поражение.' : ''), 'Выйти', () => act('leave_room'), true);
+  if (inMatch) confirmDialog('Выйти из матча?' + (R.ranked ? ' Это будет засчитано как поражение.' : ''), 'Выйти', () => { const me = R.players.find(p => p.id === R.you); if (R.ranked && !(me && me.place)) { Store.matchLoss(); syncProfile(); } act('leave_room'); }, true);
   else act('leave_room');
 }
 
@@ -1991,11 +2117,11 @@ function gameView() {
 
   const oppEls = opps.map((p, i) => h('div', { class: 'opp' + (G.turn === p.id ? ' turn' : '') + (p.connected || p.bot ? '' : ' gone') + (p.place ? ' done' : ''), style: seatStyle(i, opps.length) },
     h('div', { class: 'ring', 'data-ring': p.id }, avatar(p, opps.length > 4 ? 34 : 46)),
-    h('div', { class: 'nm' }, p.name),
-    h('div', { class: 'meta' }, h('span', { class: 'cnt' }, '🂠 ' + p.cards), R.mode === 'knockout' ? (p.place ? h('span', null, medal(p.place) + ' ' + p.place) : null) : h('span', null, '🏆' + p.score)),
-    h('div', { class: 'minis' }, Array.from({ length: Math.min(p.cards, 7) }, () => h('div', { class: 'mini' }))),
+    h('div', { class: 'nm' }, (R.mode === 'teams' ? TEAM_ICON[p.team] + ' ' : '') + p.name),
+    h('div', { class: 'meta' }, h('span', { class: 'cnt' }, '🂠 ' + p.cards), isKO(R) ? (p.place ? h('span', null, medal(p.place) + ' ' + p.place) : null) : h('span', null, '🏆' + p.score)),
+    oppFan(p, G, opps.length > 3),
     p.place ? h('div', { class: 'tag' }, medal(p.place) + ' ' + p.place + ' место') : !p.connected && !p.bot ? h('div', { class: 'tag' }, 'нет связи') : (p.auto ? h('div', { class: 'tag' }, 'авто') : (p.uno ? h('div', { class: 'tag uno' }, 'UNO') : null)),
-    G.uno && G.uno.pid === p.id ? h('button', { class: 'catch-btn', 'data-catch': p.id, onClick: () => act('catch_uno', { target: p.id }) }, 'ПОЙМАТЬ!') : null));
+    G.uno && G.uno.pid === p.id && !mePl.place ? h('button', { class: 'catch-btn', 'data-catch': p.id, onClick: () => act('catch_uno', { target: p.id }) }, 'ПОЙМАТЬ!') : null));
 
   // верхняя карта (во время анимации показываем предыдущую)
   const held = ui.pileHold > performance.now() && ui.pileTopPrev;
@@ -2004,7 +2130,7 @@ function gameView() {
 
   let status = '', statusCls = 'status';
   if (!playing) status = '';
-  else if (R.mode === 'knockout' && mePl.place) { status = `${medal(mePl.place)} Вы заняли ${mePl.place} место — наблюдаете за игрой`; statusCls += ' mine'; }
+  else if (isKO(R) && mePl.place) { status = `${medal(mePl.place)} ${R.mode === 'teams' ? 'Ваша команда заняла' : 'Вы заняли'} ${mePl.place} место — наблюдаете за игрой`; statusCls += ' mine'; }
   else if (myTurn && G.pending) { status = `Возьмите +${G.pending} или добавьте «+2» (того же цвета) / «+4»`; statusCls += ' mine'; }
   else if (myTurn && G.can_pass) { status = 'Сыграйте взятую карту или пропустите ход'; statusCls += ' mine'; }
   else if (myTurn) { status = 'Ваш ход'; statusCls += ' mine'; }
@@ -2015,6 +2141,7 @@ function gameView() {
   const unoUrgent = G.uno && G.uno.pid === me;
   if (ui.dealAnim && !Settings.lite) { ui.dealHide = new Set([...myHand.map(c => String(c.id)), 'pile']); clearTimeout(ui.dealTm); ui.dealTm = setTimeout(clearDeal, 7000); }
   const prevIds = ui.prevHand;
+  const myMarks = new Set((G.marks && G.marks[me]) || []);
   const handEls = myHand.map(c => {
     const ok = myTurn && G.playable.includes(c.id);
     const el = cardEl(c);
@@ -2022,6 +2149,7 @@ function gameView() {
     if (ui.selected === c.id && ok) el.classList.add('selected');
     if (ui.dealHide && ui.dealHide.has(String(c.id))) el.classList.add('dw');
     else if (prevIds && !prevIds.has(c.id) && !Settings.lite) el.classList.add('newcard');
+    if (myMarks.has(c.id)) { el.classList.add('marked'); el.append(h('span', { class: 'mk' }, '★')); }
     el.addEventListener('click', () => onCardTap(c, el));
     return el;
   });
@@ -2033,7 +2161,7 @@ function gameView() {
   const root = h('div', { class: 'game' },
     h('div', { class: 'topbar' },
       h('button', { class: 'icon-btn', onClick: openGameMenu, 'aria-label': 'Меню' }, '☰'),
-      h('div', { class: 'rc' }, h('div', { class: 'rn' }, R.name), h('div', { class: 'rcode' }, `${R.offline ? 'ОФЛАЙН' : 'КОД ' + R.code} · ${R.mode === 'knockout' ? 'ВЫБИВАНИЕ' : 'РАУНД ' + R.round_no}`)),
+      h('div', { class: 'rc' }, h('div', { class: 'rn' }, R.name), h('div', { class: 'rcode' }, `${R.offline ? 'ОФЛАЙН' : 'КОД ' + R.code} · ${R.mode === 'knockout' ? 'ВЫБИВАНИЕ' : R.mode === 'teams' ? 'НАПАРНИКИ' : 'РАУНД ' + R.round_no}`)),
       h('span', { class: 'fgmini', title: 'Farm Games Studio' }, 'FG')),
     h('div', { class: 'table' },
       h('div', { class: 'opps' + (opps.length > 3 ? ' many' : '') }, oppEls),
@@ -2044,8 +2172,9 @@ function gameView() {
         h('div', { class: 'pile', style: `--cc:${colorHex}` }, h('div', { class: 'ringc' }), pileCard),
         h('div', { class: 'cname', style: `color:${colorHex}` }, COLOR_NAMES[G.color] || ''))),
     h('div', { class: 'side' },
+      handsPanel(R, G, mePl),
       h('div', { class: statusCls }, status),
-      h('div', { class: 'mebar' }, h('div', { class: 'ring', 'data-ring': me, style: 'padding:2px' }, avatar(mePl, 30)), h('div', { class: 'nm' }, mePl.name), R.mode === 'knockout' ? (mePl.place ? h('span', { class: 'cnt' }, medal(mePl.place) + ' ' + mePl.place) : null) : h('span', { class: 'cnt' }, '🏆 ' + mePl.score),
+      h('div', { class: 'mebar' }, h('div', { class: 'ring', 'data-ring': me, style: 'padding:2px' }, avatar(mePl, 30)), h('div', { class: 'nm' }, (R.mode === 'teams' ? TEAM_ICON[mePl.team] + ' ' : '') + mePl.name), isKO(R) ? (mePl.place ? h('span', { class: 'cnt' }, medal(mePl.place) + ' ' + mePl.place) : null) : h('span', { class: 'cnt' }, '🏆 ' + mePl.score),
         h('div', { class: 'tbar', id: 'tbar' }, h('i')), h('span', { class: 'muted', id: 'tleft', style: 'font-size:12px;width:34px;text-align:right' })),
       h('div', { class: 'actions' },
         h('button', { class: 'btn', disabled: !G.can_draw, onClick: drawCard }, G.pending && myTurn ? `📥 Взять +${G.pending}` : '📥 Взять карту'),
@@ -2055,6 +2184,45 @@ function gameView() {
 
   if (R.status !== 'playing') root.append(resultsView(R));
   return root;
+}
+
+/* Рубашки карт соперника веером; если его карты открыты мне (я вышел из игры или он мой напарник) — рисуем лицевую сторону. */
+function oppFan(p, G, many) {
+  const hand = G.hands && G.hands[p.id], n = hand ? hand.length : p.cards;
+  if (!n || p.place && !hand) return null;
+  const cw = many ? 16 : 21, W = many ? 60 : 84, shown = Math.min(n, 15);
+  const step = shown > 1 ? Math.min(cw * 0.62, (W - cw) / (shown - 1)) : 0;
+  const wrap = h('div', { class: 'ofan' + (hand ? ' open' : ''), style: `--cw:${cw}px;height:${Math.round(cw * 1.5)}px` });
+  for (let i = 0; i < shown; i++) {
+    const el = hand ? cardEl(hand[i]) : cardEl(null, true);
+    el.style.marginLeft = i ? `${(step - cw).toFixed(1)}px` : '0';
+    wrap.append(el);
+  }
+  return wrap;
+}
+/* Панель открытых карт: напарник (можно ставить метки ★) или все игроки, если я уже вышел. */
+function handsPanel(R, G, mePl) {
+  const hands = G.hands || {}, ids = Object.keys(hands);
+  if (!ids.length || R.status !== 'playing') return null;
+  const teamPlay = R.mode === 'teams' && !mePl.place;
+  let hasMate = false;
+  const rows = ids.map(pid => {
+    const p = R.players.find(x => x.id === pid), list = hands[pid];
+    if (!p || !list.length) return null;
+    const mate = teamPlay && p.team === mePl.team; if (mate) hasMate = true;
+    const marks = new Set((G.marks && G.marks[pid]) || []);
+    const cards = list.map(c => {
+      const el = cardEl(c);
+      if (marks.has(c.id)) { el.classList.add('marked'); el.append(h('span', { class: 'mk' }, '★')); }
+      if (mate) el.addEventListener('click', () => { Snd.play('click'); vib('light'); act('mark_card', { target: pid, card_id: c.id }, true); });
+      return el;
+    });
+    return h('div', { class: 'hrow' },
+      h('div', { class: 'hn' }, (R.mode === 'teams' ? TEAM_ICON[p.team] + ' ' : '') + (mate ? '🤝 ' : '👁 ') + p.name),
+      h('div', { class: 'hcards' + (mate ? ' mate' : '') }, cards));
+  }).filter(Boolean);
+  if (!rows.length) return null;
+  return h('div', { class: 'hpanel' }, hasMate ? h('div', { class: 'muted', style: 'font-size:11px' }, 'Нажмите на карту напарника — поставить или снять метку ★') : null, rows);
 }
 
 function layoutHand() {
@@ -2153,16 +2321,16 @@ function rwChip(res, p) {
   return rw && rw.coins && !p.bot ? h('div', { class: 'coin-chip' }, '🪙 +' + rw.coins) : null;
 }
 function resultsKnockout(R, res) {
-  const me = R.you, isOwner = R.owner === me, last = res.places.length;
+  const me = R.you, isOwner = R.owner === me, last = Math.max(...res.places.map(x => x.place)), teams = res.mode === 'teams';
   const my = (res.places.find(e => e.id === me) || {}).place;
   const rows = res.places.map(e => h('div', { class: 'res-row' + (e.place === 1 ? ' win' : '') + bnCls(e) }, avatar(e, 38),
-    h('div', { class: 'grow' }, h('div', { style: 'font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, e.name + (e.id === me ? ' (вы)' : '')),
-      h('div', { class: 'muted', style: 'font-size:12px' }, e.place === 1 ? 'Первым сбросил все карты' : (e.place === last ? 'Остался последним' : 'Сбросил все карты'))),
+    h('div', { class: 'grow' }, h('div', { style: 'font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, (teams ? TEAM_ICON[e.team] + ' ' : '') + e.name + (e.id === me ? ' (вы)' : '')),
+      h('div', { class: 'muted', style: 'font-size:12px' }, teams ? (e.place === 1 ? 'Победившая команда' : (e.place === last ? 'Команда осталась последней' : 'Команда вышла')) : (e.place === 1 ? 'Первым сбросил все карты' : (e.place === last ? 'Остался последним' : 'Сбросил все карты')))),
     h('div', { style: 'text-align:right;font-weight:800;font-size:18px;white-space:nowrap' }, medal(e.place) + ' ' + e.place, rwChip(res, e))));
   return h('div', { class: 'results' }, h('div', { class: 'res-card' },
     h('div', { class: 'crown' }, my === 1 ? '🏆' : '🎯'),
-    h('div', { class: 'res-title' }, my === 1 ? 'Вы выиграли!' : (my ? `Вы заняли ${my} место` : `Победил ${res.winner_name}`)),
-    h('div', { class: 'muted', style: 'text-align:center;font-size:13px' }, 'Режим «Выбивание»'),
+    h('div', { class: 'res-title' }, my === 1 ? (teams ? 'Ваша команда выиграла!' : 'Вы выиграли!') : (my ? `${teams ? 'Ваша команда заняла' : 'Вы заняли'} ${my} место` : `Победил ${res.winner_name}`)),
+    h('div', { class: 'muted', style: 'text-align:center;font-size:13px' }, teams ? 'Режим «Напарники»' : 'Режим «Выбивание»'),
     rows,
     isOwner ? h('button', { class: 'btn primary', onClick: () => act('next_round') }, '🔁 Реванш') : h('div', { class: 'muted', style: 'text-align:center;padding:6px' }, '⏳ Ждём решения владельца…'),
     R.offline ? h('button', { class: 'btn small red', onClick: () => act('leave_room') }, '🏠 В меню')
@@ -2420,6 +2588,7 @@ if (tg) {
   if (q && /^[A-Za-z0-9]{4,8}$/.test(q)) S.startParam = q.toUpperCase();
 }
 Settings.load();
+Store.load(); flushClaims(); syncProfile();
 Splash.start();
 boot();
 })();
