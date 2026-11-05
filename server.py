@@ -107,6 +107,38 @@ CATALOG = [
     {"id": "f_santa", "kind": "frame", "name": "Дед Мороз", "price": 1200},
     {"id": "f_royal", "kind": "frame", "name": "Королевская", "price": 2000},
 ]
+# 100+ баннеров и рамок: палитры × стили (идентификаторы совпадают с клиентом; сами стили рисует клиент)
+_COS_PAL = [
+    ("ruby", "Рубин"),
+    ("amber", "Янтарь"),
+    ("lemon", "Лимон"),
+    ("lime", "Лайм"),
+    ("emerald", "Изумруд"),
+    ("mint", "Мята"),
+    ("teal", "Бирюза"),
+    ("ice", "Лёд"),
+    ("sky", "Небо"),
+    ("sapphire", "Сапфир"),
+    ("indigo", "Индиго"),
+    ("amethyst", "Аметист"),
+    ("orchid", "Орхидея"),
+    ("rose", "Роза"),
+    ("coral", "Коралл"),
+    ("tangerine", "Мандарин"),
+    ("graphite", "Графит"),
+    ("steel", "Сталь"),
+    ("cocoa", "Шоколад"),
+    ("sand", "Песок"),
+    ("lavender", "Лаванда"),
+    ("ocean", "Океан"),
+]
+_COS_BST = [("grad", "Градиент", 120), ("stripe", "Полосы", 180), ("glow", "Сияние", 250), ("cone", "Конус", 320), ("wave", "Волна", 420), ("star", "Звёзды", 380)]
+_COS_FST = [("solid", "Простая", 150), ("cone", "Конус", 220), ("pulse", "Пульс", 300), ("spin", "Вращение", 420), ("dash", "Зубцы", 350), ("half", "Половинки", 280)]
+for _i, (_pk, _pn) in enumerate(_COS_PAL):
+    for _sk, _sn, _base in _COS_BST:
+        CATALOG.append({"id": f"b_{_pk}_{_sk}", "kind": "banner", "name": f"{_pn} · {_sn}", "price": _base + (_i % 5) * 30})
+    for _sk, _sn, _base in _COS_FST:
+        CATALOG.append({"id": f"f_{_pk}_{_sk}", "kind": "frame", "name": f"{_pn} · {_sn}", "price": _base + (_i % 5) * 30})
 CATALOG_BY_ID = {i["id"]: i for i in CATALOG}
 
 
