@@ -813,6 +813,33 @@ body.lite .bn.bn-b_aurora{animation:none}
 .tb{width:30px;height:30px;padding:0;border-radius:9px;background:rgba(255,255,255,.08);border:2px solid transparent;font-size:15px;line-height:1}
 .tb.on{border-color:#fff;background:rgba(255,255,255,.24)}
 @media (orientation:landscape){.hpanel{padding:0;max-height:34vh}.hrow .hn{width:48px}}
+
+/* ---------- кольцо направления, передача хода, разнесённые места ---------- */
+.table::after{display:none}
+.dir{display:none}
+.table{padding-top:46px}
+@media (orientation:landscape){.table{padding-top:18px}}
+.dirring{position:absolute;width:min(96%,380px);aspect-ratio:1;pointer-events:none;z-index:0}
+.dirring.ccw{transform:scaleX(-1)}
+.dirring svg{width:100%;height:100%;overflow:visible;animation:spin 16s linear infinite;will-change:transform}
+.dr-line{fill:none;stroke:rgba(255,255,255,.3);stroke-width:.7;stroke-dasharray:2.2 3.2}
+.dr-arrow{fill:#ffc72e;opacity:.9;filter:drop-shadow(0 0 2px rgba(255,199,46,.9))}
+body.lite .dirring svg{animation:none}
+.baton{position:fixed;left:0;top:0;border-radius:50%;pointer-events:none;z-index:65;will-change:transform,opacity}
+.pring{position:fixed;border:3px solid #fff;border-radius:50%;pointer-events:none;z-index:64;animation:pringx .65s ease-out forwards}
+@keyframes pringx{from{transform:scale(.6);opacity:.95}to{transform:scale(2.3);opacity:0}}
+/* компактная панель открытых карт */
+.hpanel{gap:3px;max-height:max(92px,17vh)}
+.hcards{--cw:26px}
+.hcards .card{margin-left:-10px}
+.hcards.mate{--cw:32px}
+.hcards.mate .card{margin-left:-12px}
+.hrow .hn{width:56px;font-size:10px}
+
+/* убрано жёлтое свечение у аватарок — оно перекрывало купленные рамки */
+.profile .avatar{box-shadow:none!important}
+.opp.turn .ring{filter:none!important;box-shadow:none!important}
+.tile{content-visibility:auto;contain-intrinsic-size:auto 175px}
 </style>
 </head>
 <body>
@@ -912,6 +939,45 @@ const LOCAL_CATALOG = [
   { id: 'f_santa', kind: 'frame', name: 'Дед Мороз', price: 1200 },
   { id: 'f_royal', kind: 'frame', name: 'Королевская', price: 2000 },
 ];
+
+/* ---- 130+ баннеров и рамок: каталог и CSS строятся из палитр × стилей ---- */
+const COS_PAL = [["ruby", "Рубин", "#ff5a68", "#6b0f1f"], ["amber", "Янтарь", "#ffb347", "#7a3d00"], ["lemon", "Лимон", "#fff176", "#8a7400"], ["lime", "Лайм", "#b6f23a", "#2d5a05"], ["emerald", "Изумруд", "#34e08a", "#064d2c"], ["mint", "Мята", "#7ff5d0", "#0b5b4a"], ["teal", "Бирюза", "#2de2e6", "#07505c"], ["ice", "Лёд", "#cfeeff", "#3a78b5"], ["sky", "Небо", "#6ab7ff", "#0d3d8f"], ["sapphire", "Сапфир", "#3d6bff", "#0a1a6b"], ["indigo", "Индиго", "#7b61ff", "#1c0f66"], ["amethyst", "Аметист", "#b06bff", "#3d0f6b"], ["orchid", "Орхидея", "#ee6bff", "#6b0f6b"], ["rose", "Роза", "#ff7aa8", "#7a0f3d"], ["coral", "Коралл", "#ff8f7a", "#7a2410"], ["tangerine", "Мандарин", "#ff9a2e", "#7a3300"], ["graphite", "Графит", "#8a93a6", "#12151f"], ["steel", "Сталь", "#b8c4d6", "#2a3547"], ["cocoa", "Шоколад", "#c68b59", "#3a1d0b"], ["sand", "Песок", "#f0d9a0", "#7a5f20"], ["lavender", "Лаванда", "#cdb8ff", "#4a3a8a"], ["ocean", "Океан", "#1fb6ff", "#04204a"]];
+const COS_BST = [["grad", "Градиент", 120], ["stripe", "Полосы", 180], ["glow", "Сияние", 250], ["cone", "Конус", 320], ["wave", "Волна", 420], ["star", "Звёзды", 380]];
+const COS_FST = [["solid", "Простая", 150], ["cone", "Конус", 220], ["pulse", "Пульс", 300], ["spin", "Вращение", 420], ["dash", "Зубцы", 350], ["half", "Половинки", 280]];
+const COS_BANNER_BG = {
+  grad: (a, b) => `linear-gradient(135deg,${a},${b})`,
+  stripe: (a, b) => `linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,.35)),repeating-linear-gradient(45deg,${a} 0 12px,${b} 12px 24px)`,
+  glow: (a, b) => `radial-gradient(70% 140% at 85% 0%,${a},transparent 70%),${b}`,
+  cone: (a, b) => `linear-gradient(rgba(0,0,0,.25),rgba(0,0,0,.25)),conic-gradient(from 200deg at 80% 50%,${b},${a},${b},${a},${b})`,
+  wave: (a, b) => `linear-gradient(120deg,${b},${a},${b},${a},${b})`,
+  star: (a, b) => `radial-gradient(1.5px 1.5px at 12% 28%,#fff,transparent),radial-gradient(1.5px 1.5px at 38% 72%,#fff,transparent),radial-gradient(2px 2px at 63% 30%,#fff,transparent),radial-gradient(1.5px 1.5px at 86% 66%,#fff,transparent),linear-gradient(135deg,${b},${a} 170%)`,
+};
+const COS_FRAME_BG = {
+  solid: (a, b) => `linear-gradient(135deg,${a},${b} 60%,${a})`,
+  cone: (a, b) => `conic-gradient(${a},${b},${a},${b},${a})`,
+  pulse: (a, b) => `linear-gradient(135deg,${a},${b} 60%,${a})`,
+  spin: (a, b) => `conic-gradient(${a},${b},${a},${b},${a})`,
+  dash: (a, b) => `repeating-conic-gradient(${a} 0 18deg,${b} 18deg 36deg)`,
+  half: (a, b) => `conic-gradient(${a} 0 50%,${b} 0 100%)`,
+};
+(function buildCosmetics() {
+  let css = '';
+  COS_PAL.forEach(([pk, pn, a, b], i) => {
+    COS_BST.forEach(([sk, sn, base]) => {
+      const id = `b_${pk}_${sk}`;
+      LOCAL_CATALOG.push({ id, kind: 'banner', name: `${pn} · ${sn}`, price: base + (i % 5) * 30 });
+      css += `.bn.bn-${id}{background:${COS_BANNER_BG[sk](a, b)}!important;${sk === 'wave' ? 'background-size:300% 100%!important;animation:bnMove 7s linear infinite;' : ''}}\n`;
+    });
+    COS_FST.forEach(([sk, sn, base]) => {
+      const id = `f_${pk}_${sk}`;
+      LOCAL_CATALOG.push({ id, kind: 'frame', name: `${pn} · ${sn}`, price: base + (i % 5) * 30 });
+      const anim = sk === 'pulse' ? 'animation:frPulse 1.8s ease-in-out infinite alternate;' : sk === 'spin' ? 'inset:-1px;animation:specRot 3s linear infinite;' : '';
+      css += `.fr-${id}::before{background:${COS_FRAME_BG[sk](a, b)};box-shadow:0 0 9px ${a}99;${anim}}\n`;
+    });
+  });
+  css += 'body.lite .bn{animation:none!important}\n';
+  const st = document.createElement('style'); st.id = 'gen-cosmetics'; st.textContent = css; document.head.append(st);
+})();
 const STORE_KEY = 'uno_local_profile_v1';
 const Store = {
   d: null,
@@ -1590,6 +1656,10 @@ function applyRoom(room, live) {
   if (tg) { try { room.status === 'playing' ? tg.enableClosingConfirmation() : tg.disableClosingConfirmation(); } catch (e) {} }
   render();
   if (live) runEffects(evs, from);
+  if (live && prev && prev.status === 'playing' && room.status === 'playing' && prev.game && room.game && prev.game.turn && room.game.turn
+      && prev.game.turn !== room.game.turn && !evs.some(e => e.t === 'deal')) {
+    turnBaton(prev.game.turn, room.game.turn, COLOR_HEX[room.game.color] || '#ffd75a', evs.some(e => e.t === 'play') ? 480 : 120);
+  }
   ui.dealAnim = false;
 }
 
@@ -2003,7 +2073,7 @@ function doBuy(it) {
 function shopView() {
   const p = S.profile || {}, cat = LOCAL_CATALOG, tab = S.shopTab || 'banner';
   const owned = new Set(p.owned || []), u = profUser(), eq = p[tab] || '', coins = p.coins || 0;
-  const items = [{ id: '', kind: tab, name: tab === 'banner' ? 'Без баннера' : 'Без рамки', price: 0 }, ...cat.filter(i => i.kind === tab)];
+  const items = [{ id: '', kind: tab, name: tab === 'banner' ? 'Без баннера' : 'Без рамки', price: 0 }, ...cat.filter(i => i.kind === tab).sort((x, y) => x.price - y.price)];
   const tile = it => {
     const have = !it.id || it.price === 0 || owned.has(it.id), on = eq === it.id;
     const sample = tab === 'banner'
@@ -2103,7 +2173,7 @@ function leaveRoom() {
 /* ----- игровое поле ----- */
 function seatStyle(i, n) {
   const th = Math.PI * (i + 1) / (n + 1);
-  const x = 50 - 36 * Math.cos(th), y = 52 - 40 * Math.sin(th);
+  const x = 50 - 41 * Math.cos(th), y = 60 - 42 * Math.sin(th);
   return `--lx:${x.toFixed(1)}%;--ly:${y.toFixed(1)}%`;
 }
 function gameView() {
@@ -2165,7 +2235,7 @@ function gameView() {
       h('span', { class: 'fgmini', title: 'Farm Games Studio' }, 'FG')),
     h('div', { class: 'table' },
       h('div', { class: 'opps' + (opps.length > 3 ? ' many' : '') }, oppEls),
-      h('div', { class: 'dir' + (G.direction < 0 ? ' ccw' : '') }, '↻'),
+      dirRing(G.direction < 0),
       h('div', { class: 'deckwrap' },
         h('div', { class: 'deck' + (G.can_draw ? ' can' : ''), onClick: drawCard }, h('div', { class: 'stackfx' }), cardEl(null, true))),
       h('div', { class: 'pilewrap' },
@@ -2189,7 +2259,7 @@ function gameView() {
 /* Рубашки карт соперника веером; если его карты открыты мне (я вышел из игры или он мой напарник) — рисуем лицевую сторону. */
 function oppFan(p, G, many) {
   const hand = G.hands && G.hands[p.id], n = hand ? hand.length : p.cards;
-  if (!n || p.place && !hand) return null;
+  if (hand || !n || p.place) return null;
   const cw = many ? 16 : 21, W = many ? 60 : 84, shown = Math.min(n, 15);
   const step = shown > 1 ? Math.min(cw * 0.62, (W - cw) / (shown - 1)) : 0;
   const wrap = h('div', { class: 'ofan' + (hand ? ' open' : ''), style: `--cw:${cw}px;height:${Math.round(cw * 1.5)}px` });
@@ -2223,6 +2293,41 @@ function handsPanel(R, G, mePl) {
   }).filter(Boolean);
   if (!rows.length) return null;
   return h('div', { class: 'hpanel' }, hasMate ? h('div', { class: 'muted', style: 'font-size:11px' }, 'Нажмите на карту напарника — поставить или снять метку ★') : null, rows);
+}
+
+/* Кольцо на столе: стрелки бегут по кругу в ту сторону, куда идёт очередь (по часовой — вперёд, против — после «Смены направления»). */
+function dirRing(ccw) {
+  const el = h('div', { class: 'dirring' + (ccw ? ' ccw' : ''), 'aria-hidden': 'true' });
+  el.innerHTML = '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" class="dr-line"/>' +
+    [0, 90, 180, 270].map(a => `<path class="dr-arrow" transform="rotate(${a} 50 50)" d="M46 -1 L55 2 L46 5 Z"/>`).join('') + '</svg>';
+  return el;
+}
+/* Передача хода: после хода от игрока к следующему летит светящийся шар с хвостом, на месте прилёта — волна и искры. */
+function ringEl(id) { return document.querySelector(`[data-ring="${id}"]`); }
+function turnBaton(fromId, toId, color, delay) {
+  if (Settings.lite || !document.body.animate) return;
+  const a = ringEl(fromId), b = ringEl(toId), fx = $('#fx'); if (!a || !b || !fx) return;
+  const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+  const x0 = ra.left + ra.width / 2, y0 = ra.top + ra.height / 2, x1 = rb.left + rb.width / 2, y1 = rb.top + rb.height / 2;
+  const tb = $('.table'), tr = tb ? tb.getBoundingClientRect() : null;
+  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, cx = tr ? tr.left + tr.width / 2 : mx, cy = tr ? tr.top + tr.height / 2 : my;
+  const qx = mx + (cx - mx) * 0.7, qy = my + (cy - my) * 0.7;   // дуга выгибается к центру стола
+  const N = 18, dur = 720, pts = [];
+  for (let i = 0; i <= N; i++) { const t = i / N, u = 1 - t; pts.push([u * u * x0 + 2 * u * t * qx + t * t * x1, u * u * y0 + 2 * u * t * qy + t * t * y1]); }
+  for (let k = 0; k < 6; k++) {
+    const size = 22 - k * 3, el = h('div', { class: 'baton', style: `width:${size}px;height:${size}px;background:${k ? color : '#fff'};box-shadow:0 0 ${14 - k}px ${color},0 0 ${30 - 3 * k}px ${color}` });
+    fx.append(el);
+    const kf = pts.map((p, i) => ({ transform: `translate(${(p[0] - size / 2).toFixed(1)}px,${(p[1] - size / 2).toFixed(1)}px) scale(${(0.7 + 0.6 * Math.sin(Math.PI * i / N)).toFixed(2)})`, opacity: i === 0 || i === N ? 0 : 1 - k * 0.13, offset: i / N }));
+    el.animate(kf, { duration: dur, delay: delay + k * 40, easing: 'cubic-bezier(.45,.05,.25,1)', fill: 'both' }).onfinish = () => el.remove();
+  }
+  setTimeout(() => {
+    const t = ringEl(toId); if (!t) return;
+    t.classList.remove('bump'); void t.offsetWidth; t.classList.add('bump');
+    const r = t.getBoundingClientRect(), w = Math.max(r.width, 40);
+    const wave = h('div', { class: 'pring', style: `left:${r.left + r.width / 2 - w / 2}px;top:${r.top + r.height / 2 - w / 2}px;width:${w}px;height:${w}px;border-color:${color};box-shadow:0 0 18px ${color}` });
+    fx.append(wave); setTimeout(() => wave.remove(), 700);
+    sparks(r, [color, '#fff'], 12);
+  }, delay + dur + 90);
 }
 
 function layoutHand() {
